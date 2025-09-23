@@ -7,7 +7,7 @@
 #include "task_can_rx.h"
 #include "main.h"
 #include "cmsis_os2.h"
-#include "fore_board.h"
+#include "achter_board.h"
 
 #include "can-not/can_not.h"
 //#include "canmsgs
@@ -16,7 +16,7 @@
 extern volatile uint32_t task_can_rx_alive;
 void task_can_rx(void *argument)
 {
-	fore_board_t* fb_ptr = fore_board_get_ptr();
+	achter_board_t* fb_ptr = achter_board_get_ptr();
 
 	cant_generic_struct_t tmp = { 0 };
 	while (1)

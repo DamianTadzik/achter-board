@@ -7,7 +7,7 @@
 #include "task_servo_control.h"
 #include "main.h"
 #include "cmsis_os2.h"
-#include "fore_board.h"
+#include "achter_board.h"
 
 #include "tim.h"
 
@@ -84,7 +84,7 @@ static uint32_t actuators_range_identification(void);
 extern volatile uint32_t task_servo_control_alive;
 void task_servo_control(void* argument)
 {
-	fore_board_t* fb_ptr = fore_board_get_ptr();
+	achter_board_t* fb_ptr = achter_board_get_ptr();
 
 
 	while (1)

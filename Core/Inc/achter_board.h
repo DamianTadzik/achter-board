@@ -1,5 +1,5 @@
 /*
- * fore_board.h
+ * achter_board.h
  *
  *  Created on: Sep 1, 2025
  *      Author: brzan
@@ -36,10 +36,10 @@ typedef struct {
 
 	range_meas_t left_tof;
 	range_meas_t right_tof;
-} fore_board_t;
+} achter_board_t;
 
-void fore_board_init(void);
+void achter_board_init(void);
 
-fore_board_t* fore_board_get_ptr(void);
+achter_board_t* achter_board_get_ptr(void);
 
 #endif /* INC_FORE_BOARD_H_ */

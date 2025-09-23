@@ -7,7 +7,7 @@
 #include "task_adc.h"
 #include "main.h"
 #include "cmsis_os2.h"
-#include "fore_board.h"
+#include "achter_board.h"
 
 #include "tim.h"
 #include "adc.h"
@@ -63,7 +63,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 extern volatile uint32_t task_adc_alive;
 void task_adc(void *argument)
 {
-	fore_board_t* fb_ptr = fore_board_get_ptr();
+	achter_board_t* fb_ptr = achter_board_get_ptr();
 	s_thisTask = osThreadGetId();
 
 	/* Required on F1 (idk why but ehhh...) */
@@ -101,7 +101,7 @@ void task_adc(void *argument)
 		}
 		TEMPERATURE = 25.0f + (s_voltages[channel_Temperature_Sensor] - 1.43f) / 0.0043f;
 
-		/* Save what necessary in the fore_board_t structure */
+		/* Save what necessary in the achter_board_t structure */
 		fb_ptr->left_servo_feedback.voltage  = s_voltages[channel_1];
 		fb_ptr->right_servo_feedback.voltage = s_voltages[channel_4];
 

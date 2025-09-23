@@ -7,7 +7,7 @@
 #include "task_range_meas.h"
 #include "main.h"
 #include "cmsis_os2.h"
-#include "fore_board.h"
+#include "achter_board.h"
 
 #include "i2c.h"
 #include "i2c_bus_guard.h"
@@ -30,7 +30,7 @@ void exti_task_range_meas_callback(uint16_t GPIO_Pin)
 extern volatile uint32_t task_range_meas_alive;
 void task_range_meas(void *argument)
 {
-	fore_board_t* fb_ptr = fore_board_get_ptr();
+	achter_board_t* fb_ptr = achter_board_get_ptr();
 	tof_thread = osThreadGetId();
 
 	HAL_GPIO_WritePin(GPIO_SHDN_VL_1_GPIO_Port, GPIO_SHDN_VL_1_Pin, GPIO_PIN_RESET);

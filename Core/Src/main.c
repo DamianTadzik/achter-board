@@ -28,7 +28,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "fore_board.h"
+#include "achter_board.h"
 
 #include "can-not/can_not.h"
 
@@ -108,7 +108,7 @@ int main(void)
   MX_I2C2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  fore_board_init();
+  achter_board_init();
   cant_main_init();
   i2c_mutexes_init();
 
