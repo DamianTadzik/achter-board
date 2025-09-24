@@ -24,6 +24,7 @@
 #include "dma.h"
 #include "i2c.h"
 #include "tim.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -37,6 +38,7 @@
 #include "task_range_meas.h"
 #include "task_servo_power_monitor.h"
 
+#include "crsf/crsf_port.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -107,10 +109,12 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C2_Init();
   MX_TIM3_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   achter_board_init();
   cant_main_init();
   i2c_mutexes_init();
+  CRSF_Init(&huart2, &htim1);
 
   uint32_t startup_counter = 0;
   HAL_GPIO_WritePin(GPIO_LED_GPIO_Port, GPIO_LED_Pin, GPIO_PIN_RESET);
@@ -196,11 +200,32 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+//#define CRSF_DEBUG
+#ifdef CRSF_DEBUG
+volatile uint32_t g_HAL_UART_RxCpltCallback_counter = 0;
+volatile uint32_t g_HAL_UART_ErrorCallback_counter = 0;
+#endif
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	exti_task_range_meas_callback(GPIO_Pin);
 	exti_task_servo_power_monitor_callback(GPIO_Pin);
 }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+#ifdef CRSF_DEBUG
+	g_HAL_UART_RxCpltCallback_counter++;
+#endif
+	CRSF_UART_RxCpltCallback(huart);
+}
+void HAL_UART_ErrorCallback (UART_HandleTypeDef *huart)
+{
+#ifdef CRSF_DEBUG
+	g_HAL_UART_ErrorCallback_counter++;
+#endif
+	CRSF_UART_ErrorCallback(huart);
+}
+
 /* USER CODE END 4 */
 
 /**
@@ -220,7 +245,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-
+  if (htim->Instance == TIM1) {
+	CRSF_TIM_UpdateIRQ(htim);
+  }
   /* USER CODE END Callback 1 */
 }
 

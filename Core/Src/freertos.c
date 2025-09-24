@@ -32,6 +32,9 @@
 #include "task_servo_control.h"
 #include "task_servo_power_monitor.h"
 #include "task_range_meas.h"
+
+#include "task_crsf_receiver.h"
+#include "task_crsf_transmitter.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -87,6 +90,21 @@ const osThreadAttr_t task_range_meas_attributes = {
 };
 
 
+osThreadId_t task_crsf_receiver_handle;
+const osThreadAttr_t task_crsf_receiver_attributes = {
+  .name = "task_crsf_receiver",
+  .stack_size = 128 * 2,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+
+osThreadId_t task_crsf_transmitter_handle;
+const osThreadAttr_t task_crsf_transmitter_attributes = {
+  .name = "task_crsf_transmitter",
+  .stack_size = 128 * 2,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+
+
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -124,7 +142,7 @@ void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
   */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
-	size_t res = xPortGetFreeHeapSize();
+	volatile size_t res = xPortGetFreeHeapSize();
 	UNUSED(res);
 
 	cant_freertos_init();
@@ -169,6 +187,13 @@ void MX_FREERTOS_Init(void) {
   task_range_meas_handle = osThreadNew(task_range_meas, NULL, &task_range_meas_attributes);
   res = xPortGetFreeHeapSize();
 
+  task_crsf_receiver_handle = osThreadNew(task_crsf_receiver, NULL, &task_crsf_receiver_attributes);
+  res = xPortGetFreeHeapSize();
+
+  task_crsf_transmitter_handle = osThreadNew(task_crsf_transmitter, NULL, &task_crsf_transmitter_attributes);
+  res = xPortGetFreeHeapSize();
+
+ UNUSED(res);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -190,12 +215,16 @@ volatile uint32_t task_adc_alive;
 volatile uint32_t task_servo_control_alive;
 volatile uint32_t task_servo_power_monitor_alive;
 volatile uint32_t task_range_meas_alive;
+volatile uint32_t task_crsf_receiver_alive;
+volatile uint32_t task_crsf_transmitter_alive;
 
 volatile UBaseType_t task_can_rx_high_watermark;
 volatile UBaseType_t task_adc_high_watermark;
 volatile UBaseType_t task_servo_control_high_watermark;
 volatile UBaseType_t task_servo_power_monitor_high_watermark;
 volatile UBaseType_t task_range_meas_high_watermark;
+volatile UBaseType_t task_crsf_receiver_high_watermark;
+volatile UBaseType_t task_crsf_transmitter_high_watermark;
 
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument)
@@ -211,6 +240,9 @@ void StartDefaultTask(void *argument)
 	  task_servo_control_high_watermark    = uxTaskGetStackHighWaterMark((TaskHandle_t)task_servo_control_handle);
 	  task_servo_power_monitor_high_watermark = uxTaskGetStackHighWaterMark((TaskHandle_t)task_servo_power_monitor_handle);
 	  task_range_meas_high_watermark       = uxTaskGetStackHighWaterMark((TaskHandle_t)task_range_meas_handle);
+
+	  task_crsf_receiver_high_watermark       = uxTaskGetStackHighWaterMark((TaskHandle_t)task_crsf_receiver_handle);
+	  task_crsf_transmitter_high_watermark    = uxTaskGetStackHighWaterMark((TaskHandle_t)task_crsf_transmitter_handle);
 
 	  osDelay(200);
   }

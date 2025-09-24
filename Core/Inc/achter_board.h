@@ -11,6 +11,12 @@
 #include "main.h"
 
 typedef struct {
+	uint16_t throttle;
+	uint16_t steering;
+
+} radio_control_request_t;
+
+typedef struct {
 	float angle;	// This is obtained via CAN interface
 } control_request_t;
 
@@ -36,6 +42,8 @@ typedef struct {
 
 	range_meas_t left_tof;
 	range_meas_t right_tof;
+
+	radio_control_request_t radio;
 } achter_board_t;
 
 void achter_board_init(void);
