@@ -111,6 +111,8 @@ int main(void)
   MX_TIM3_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  buzz();
+
   achter_board_init();
   cant_main_init();
   i2c_mutexes_init();
@@ -131,6 +133,17 @@ int main(void)
 	  {
 		  /* Special mode can be entered here */
 	  }
+  }
+
+  /* Welcome buzz */
+  HAL_Delay(150);
+  no_buzz();
+  for (int i = 0; i < 3; i++)
+  {
+	  HAL_Delay(50);
+	  buzz();
+	  HAL_Delay(50);
+	  no_buzz();
   }
 
   /* USER CODE END 2 */

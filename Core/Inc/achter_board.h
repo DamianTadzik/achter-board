@@ -14,6 +14,8 @@ typedef struct {
 	int16_t throttle;
 	uint16_t steering;
 
+
+	uint8_t is_connected;
 } radio_control_request_t;
 
 typedef struct {
@@ -57,5 +59,9 @@ typedef struct {
 void achter_board_init(void);
 
 achter_board_t* achter_board_get_ptr(void);
+
+void buzz(void);
+
+void no_buzz(void);
 
 #endif /* INC_FORE_BOARD_H_ */

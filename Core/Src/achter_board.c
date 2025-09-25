@@ -17,3 +17,13 @@ achter_board_t* achter_board_get_ptr(void)
 {
 	return &ab;
 }
+
+void buzz(void)
+{
+	HAL_GPIO_WritePin(GPIO_BUZZER_GPIO_Port, GPIO_BUZZER_Pin, GPIO_PIN_RESET);
+}
+
+void no_buzz(void)
+{
+	HAL_GPIO_WritePin(GPIO_BUZZER_GPIO_Port, GPIO_BUZZER_Pin, GPIO_PIN_SET);
+}

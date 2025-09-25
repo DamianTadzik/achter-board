@@ -73,19 +73,22 @@ void task_crsf_receiver(void *argument)
         {
             if (CRSF_GetLinkStats(&stats))
             {
-//                if (g_crsfLinkQ) osMessageQueuePut(g_crsfLinkQ, &lmsg, 0, 0);
+
             }
-            int tmp = 0;
         }
 
         // Failsafe guard: if link lost, you can trigger your shutdown logic here
-        if (CRSF_IsLinkLost()) {
+        if (CRSF_IsLinkLost())
+        {
         	g_link_losses_cnt++;
-            // TODO: call your safe-shutdown / disarm routine
-            // e.g., set a global flag, cut PWM, etc.
-
-        	ab_ptr->radio.throttle = 992;
-        	ab_ptr->radio.steering = 992;
+        	ab_ptr->radio.is_connected = 0;
+        	// TODO: call your safe-shutdown / disarm routine
+        	ab_ptr->radio.throttle = 0;
+        	ab_ptr->radio.steering = 1500;
+        }
+        else
+        {
+        	ab_ptr->radio.is_connected = 1;
         }
     }
 }

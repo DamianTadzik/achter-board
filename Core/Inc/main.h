@@ -69,6 +69,8 @@ void Error_Handler(void);
 #define EXTI_INA_2_Pin GPIO_PIN_12
 #define EXTI_INA_2_GPIO_Port GPIOB
 #define EXTI_INA_2_EXTI_IRQn EXTI15_10_IRQn
+#define GPIO_BUZZER_Pin GPIO_PIN_10
+#define GPIO_BUZZER_GPIO_Port GPIOA
 #define EXTI_INA_1_Pin GPIO_PIN_3
 #define EXTI_INA_1_GPIO_Port GPIOB
 #define EXTI_INA_1_EXTI_IRQn EXTI3_IRQn
