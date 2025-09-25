@@ -45,6 +45,7 @@ void task_crsf_transmitter(void *argument)
 		// --- Send CRSF Heartbeat (0x0B) ---
 		// Payload = 1 byte: Origin Device Address (use Flight Controller address 0xC8)
 		// Ref: CRSF heartbeat payload spec. :contentReference[oaicite:1]{index=1}
+    	if (0)
 		{
 			uint8_t hb_payload = CRSF_ADDRESS_FLIGHT_CONTROLLER; // 0xC8
 			(void)CRSF_TxSend(CRSF_FRAMETYPE_HEARTBEAT, &hb_payload, 1);

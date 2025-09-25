@@ -90,7 +90,7 @@ void exti_task_servo_power_monitor_callback(uint16_t GPIO_Pin)
 extern volatile uint32_t task_servo_power_monitor_alive;
 void task_servo_power_monitor(void *argument)
 {
-	achter_board_t* fb_ptr = achter_board_get_ptr();
+	achter_board_t* ab_ptr = achter_board_get_ptr();
 	g_powerTaskTid = osThreadGetId();
 
     /* INIT dwóch czujników
@@ -123,8 +123,8 @@ void task_servo_power_monitor(void *argument)
             (void)ina226_read_power(&g_ina1.drv, &pwr_raw, &pwr_mW);
 
 
-            fb_ptr->left_servo_power.current = ish_mA;
-            fb_ptr->left_servo_power.voltage = vbus_mV;
+            ab_ptr->left_servo_power.current = ish_mA;
+            ab_ptr->left_servo_power.voltage = vbus_mV;
         }
 
         if (flags & INA2_FLAG)
@@ -139,8 +139,8 @@ void task_servo_power_monitor(void *argument)
             (void)ina226_read_current(&g_ina2.drv, &ish_raw, &ish_mA);
             (void)ina226_read_power(&g_ina2.drv, &pwr_raw, &pwr_mW);
 
-            fb_ptr->right_servo_power.current = ish_mA;
-            fb_ptr->right_servo_power.voltage = vbus_mV;
+            ab_ptr->right_servo_power.current = ish_mA;
+            ab_ptr->right_servo_power.voltage = vbus_mV;
         }
 
         /* opcjonalnie: gdy timeout – możesz zrobić sanity poll raz na jakiś czas */

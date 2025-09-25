@@ -35,7 +35,7 @@ typedef struct {
 
 servo_actuators_t actuators = {
 		.prev_state = ACTUATORS_OFF,
-		.state = ACTUATORS_OFF, // ACTUATORS_IDENTIFICATION
+		.state = ACTUATORS_ON, // ACTUATORS_IDENTIFICATION
 		.left_servo = {
 			.handle_ptr = &htim1,
 			.channel = 	TIM_CHANNEL_1,
@@ -84,14 +84,14 @@ static uint32_t actuators_range_identification(void);
 extern volatile uint32_t task_servo_control_alive;
 void task_servo_control(void* argument)
 {
-	achter_board_t* fb_ptr = achter_board_get_ptr();
+	achter_board_t* ab_ptr = achter_board_get_ptr();
 
 
 	while (1)
 	{
 		/* Obtain control */
-//		fb_ptr->
-// todo control state change via fb_ptr
+//		ab_ptr->
+// todo control state change via ab_ptr
 
 		/* Execute control */
 		switch (actuators.state)
@@ -108,8 +108,7 @@ void task_servo_control(void* argument)
 			{
 				start_servo(&actuators);
 			}
-// todo control ia fb_ptr
-
+			set_left_servo_sp(&actuators, ab_ptr->radio.steering);
 			break;
 
 		case ACTUATORS_AUTO_CALIBRATION:

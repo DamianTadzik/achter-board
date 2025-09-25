@@ -6,7 +6,7 @@
  */
 #include "achter_board.h"
 
-static achter_board_t fb;
+static achter_board_t ab;
 
 void achter_board_init(void)
 {
@@ -15,5 +15,5 @@ void achter_board_init(void)
 
 achter_board_t* achter_board_get_ptr(void)
 {
-	return &fb;
+	return &ab;
 }
