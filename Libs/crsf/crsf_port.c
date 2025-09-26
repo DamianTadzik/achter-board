@@ -160,6 +160,8 @@ bool CRSF_Init(UART_HandleTypeDef *huart, TIM_HandleTypeDef *htim_us) {
     s_uart = huart;
     s_tim  = htim_us;
 
+    HAL_TIM_Base_Start(s_tim);
+
     // ---- Timebase: ensure TIM is running and update IRQ is enabled ----
     // Do NOT change PSC/ARR here (PWM uses this timer). We only start base + enable update IT.
     __HAL_TIM_ENABLE_IT(s_tim, TIM_IT_UPDATE); // count overflows in CRSF_TIM_UpdateIRQ()

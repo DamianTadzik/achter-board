@@ -10,13 +10,34 @@
 
 #include "main.h"
 
+typedef enum {
+	DISARMED,
+	ARMED_STEERING_PROPULSION,
+	ARMED_ALL,
+} arm_switch_t;
+
+typedef enum {
+	To,
+	Be,
+	Done,
+} mode_switch_t;
+
+/* All values in following structure as like in the can should be normalized to permile */
 typedef struct {
 	int16_t throttle;
-	uint16_t steering;
+	int16_t steering;
 
+	int16_t front_pitch_sp;
+	int16_t front_roll_sp;
+	int16_t rear_pitch_sp;
+
+	int16_t free_knob;
+
+	arm_switch_t arm_switch;
+	mode_switch_t mode_switch;
 
 	uint8_t is_connected;
-} radio_control_request_t;
+} radio_controls_t;
 
 typedef struct {
 	uint8_t axis_current_state;
@@ -51,7 +72,7 @@ typedef struct {
 	range_meas_t left_tof;
 	range_meas_t right_tof;
 
-	radio_control_request_t radio;
+	radio_controls_t from_radio;
 
 	odesc_feedback_t odesc;
 } achter_board_t;

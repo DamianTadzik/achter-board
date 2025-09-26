@@ -35,11 +35,18 @@ static inline int16_t map_i16(int16_t x,
 }
 
 
+static inline uint8_t switch_3_pos_decode_from_channel(uint16_t channel)
+{
+	if (channel < 172+550) return 0;
+	else if (channel > 1839-550) return 2;
+	else return 1;
+}
 
-volatile uint16_t ch[CRSF_MAX_CHANNEL];
-volatile uint32_t age_us;
 
-volatile CRSF_LinkStats_t stats;
+uint16_t ch[CRSF_MAX_CHANNEL];
+uint32_t age_us;
+
+CRSF_LinkStats_t stats;
 
 volatile uint32_t g_link_losses_cnt;
 volatile uint32_t g_flags;
@@ -60,12 +67,28 @@ void task_crsf_receiver(void *argument)
         {
             if (CRSF_GetChannels(ch, &age_us))
             {
-            	ab_ptr->radio.throttle = map_i16(ch[0],
-            									 172, 1811,
-												 -100, 100);
-            	ab_ptr->radio.steering = map_u16(ch[1],
-												 172, 1811,
-												 1000, 2000);
+            	ab_ptr->from_radio.throttle = -map_i16(ch[0],
+            									 	   172, 1811,
+													   -1000, 1000);
+            	ab_ptr->from_radio.steering = map_i16(ch[1],
+												 	  172, 1811,
+												 	  -1000, 1000);
+
+            	ab_ptr->from_radio.front_pitch_sp = map_i16(ch[2],
+            												172, 1811,
+															-1000, 1000);
+            	ab_ptr->from_radio.front_roll_sp = map_i16(ch[3],
+						 	 	 	 	 	 	 	       172, 1811,
+													       -1000, 1000);
+            	ab_ptr->from_radio.rear_pitch_sp = map_i16(ch[4],
+						 	 	 	 	 	 	 	       172, 1811,
+													       -1000, 1000);
+            	ab_ptr->from_radio.free_knob =  map_i16(ch[5],
+	 	 	 	 	 	  	  	  	  	  	  	        172, 1811,
+												        -1000, 1000);
+
+            	ab_ptr->from_radio.arm_switch = switch_3_pos_decode_from_channel(ch[6]);
+            	ab_ptr->from_radio.mode_switch = switch_3_pos_decode_from_channel(ch[7]);
             }
         }
 
@@ -81,14 +104,14 @@ void task_crsf_receiver(void *argument)
         if (CRSF_IsLinkLost())
         {
         	g_link_losses_cnt++;
-        	ab_ptr->radio.is_connected = 0;
+        	ab_ptr->from_radio.is_connected = 0;
         	// TODO: call your safe-shutdown / disarm routine
-        	ab_ptr->radio.throttle = 0;
-        	ab_ptr->radio.steering = 1500;
+        	ab_ptr->from_radio.throttle = 0;
+        	ab_ptr->from_radio.steering = 0;
         }
         else
         {
-        	ab_ptr->radio.is_connected = 1;
+        	ab_ptr->from_radio.is_connected = 1;
         }
     }
 }

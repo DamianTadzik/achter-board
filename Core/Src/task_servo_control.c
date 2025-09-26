@@ -12,37 +12,46 @@
 #include "tim.h"
 
 typedef enum {
-    ACTUATORS_OFF,
-    ACTUATORS_ON,
-    ACTUATORS_AUTO_CALIBRATION,
-	ACTUATORS_RANGE_IDENTIFICATION,
+    ACTUATOR_OFF,
+    ACTUATOR_ON,
+    ACTUATOR_AUTO_CALIBRATION,
+	ACTUATOR_RANGE_IDENTIFICATION,
 } actuator_state_t;
 
 typedef struct {
 	TIM_HandleTypeDef *handle_ptr;
 	uint32_t channel;
-	uint32_t setpoint;
+	int16_t requested_setpoint;
+	int16_t setpoint_lower_bound;
+	int16_t setpoint_upper_bound;
 } timer_wrapper_t;
 
 typedef struct {
 	actuator_state_t 	prev_state;
 	actuator_state_t 	state;
-
-	timer_wrapper_t 	left_servo;
-	timer_wrapper_t 	right_servo;
-} servo_actuators_t;
+	timer_wrapper_t 	timer;
+} actuator_t;
 
 
-servo_actuators_t actuators = {
-		.prev_state = ACTUATORS_OFF,
-		.state = ACTUATORS_ON, // ACTUATORS_IDENTIFICATION
-		.left_servo = {
-			.handle_ptr = &htim1,
-			.channel = 	TIM_CHANNEL_1,
+
+actuator_t rear_foil_actuator = {
+		.prev_state = ACTUATOR_OFF,
+		.state = ACTUATOR_OFF, // ACTUATORS_IDENTIFICATION
+		.timer = {
+				.handle_ptr = &htim1,
+				.channel = 	TIM_CHANNEL_2,
+				.setpoint_lower_bound = 1000,
+				.setpoint_upper_bound = 2000,
 		},
-		.right_servo = {
-			.handle_ptr = &htim1,
-			.channel = 	TIM_CHANNEL_2,
+};
+actuator_t steering_actuator = {
+		.prev_state = ACTUATOR_OFF,
+		.state = ACTUATOR_OFF, // ACTUATORS_IDENTIFICATION
+		.timer = {
+				.handle_ptr = &htim1,
+				.channel = 	TIM_CHANNEL_1,
+				.setpoint_lower_bound = 1000,
+				.setpoint_upper_bound = 2000,
 		},
 };
 
@@ -55,28 +64,56 @@ servo_actuators_t actuators = {
 // from onshape 17,343 + 6,643 = 23.986 degrees of servo motion
 // so 24 degrees of motion is like 240 us of control
 
-static inline void set_left_servo_sp(servo_actuators_t* hact, uint32_t sp)
+static inline int16_t clamp_i16(int16_t x, int16_t lb, int16_t ub)
 {
-	hact->left_servo.setpoint = sp;
-	__HAL_TIM_SET_COMPARE(hact->left_servo.handle_ptr, hact->left_servo.channel, sp);
+    if (x > ub) return ub;
+    if (x < lb) return lb;
+    return x;
 }
 
-static inline void set_right_servo_sp(servo_actuators_t* hact, uint32_t sp)
+static inline int16_t map_i16(int16_t x,
+                              int16_t in_min,  int16_t in_max,
+                              int16_t out_min, int16_t out_max)
 {
-	hact->right_servo.setpoint = sp;
-	__HAL_TIM_SET_COMPARE(hact->right_servo.handle_ptr, hact->right_servo.channel, sp);
+    if (in_max == in_min) return out_min;
+    int32_t num   = (int32_t)(x - in_min) * (out_max - out_min);
+    int32_t denom = (int32_t)(in_max - in_min);
+    return (int16_t)(out_min + num / denom);
 }
 
-static inline void start_servo(servo_actuators_t* hact)
+
+
+static void actuator_set_setpoint(actuator_t *hact, int16_t requested_setpoint)
 {
-	HAL_TIM_PWM_Start(hact->left_servo.handle_ptr, hact->left_servo.channel);
-	HAL_TIM_PWM_Start(hact->right_servo.handle_ptr, hact->right_servo.channel);
+	hact->timer.requested_setpoint = requested_setpoint;
+	int16_t clamped_setpoint = clamp_i16(requested_setpoint, hact->timer.setpoint_lower_bound, hact->timer.setpoint_upper_bound);
+	__HAL_TIM_SET_COMPARE(hact->timer.handle_ptr, hact->timer.channel, (uint32_t)clamped_setpoint);
 }
 
-static inline void stop_servo(servo_actuators_t* hact)
+static void actuator_enable(actuator_t *hact)
 {
-	HAL_TIM_PWM_Stop(hact->left_servo.handle_ptr, hact->left_servo.channel);
-	HAL_TIM_PWM_Stop(hact->right_servo.handle_ptr, hact->right_servo.channel);
+//	HAL_TIM_PWM_Start(hact->timer.handle_ptr, hact->timer.channel);
+    if (IS_TIM_BREAK_INSTANCE(hact->timer.handle_ptr->Instance))
+    {
+        __HAL_TIM_MOE_ENABLE(hact->timer.handle_ptr);
+    }
+    // włącz sam kanał (CCxE)
+    TIM_CCxChannelCmd(hact->timer.handle_ptr->Instance,
+                      hact->timer.channel,
+                      TIM_CCx_ENABLE);
+}
+
+static void actuator_disable(actuator_t *hact)
+{
+//	HAL_TIM_PWM_Stop(hact->timer.handle_ptr, hact->timer.channel);
+    // wyłącz sam kanał (CCxE)
+    TIM_CCxChannelCmd(hact->timer.handle_ptr->Instance,
+                      hact->timer.channel,
+                      TIM_CCx_DISABLE);
+    if (IS_TIM_BREAK_INSTANCE(hact->timer.handle_ptr->Instance))
+    {
+        __HAL_TIM_MOE_DISABLE(hact->timer.handle_ptr);
+    }
 }
 
 static uint32_t actuators_range_identification(void);
@@ -89,137 +126,118 @@ void task_servo_control(void* argument)
 
 	while (1)
 	{
-		/* Obtain control */
-//		ab_ptr->
-// todo control state change via ab_ptr
+		/* Obtain control signals from CAN/RADIO */
 
-		/* Execute control */
-		switch (actuators.state)
+		int16_t steering_sp = map_i16(ab_ptr->from_radio.steering,
+									   -1000, 1000,
+									   1100, 1900); // TODO fix this
+
+		if (ab_ptr->from_radio.arm_switch == ARMED_STEERING_PROPULSION || ab_ptr->from_radio.arm_switch == ARMED_ALL)
 		{
-		case ACTUATORS_OFF:
-			if (actuators.prev_state != actuators.state)
-			{
-				stop_servo(&actuators);
-			}
+			steering_actuator.state = ACTUATOR_ON;
+		}
+		else if (ab_ptr->from_radio.arm_switch == DISARMED)
+		{
+			steering_actuator.state = ACTUATOR_OFF;
+		}
+
+
+		/* Execute control alghoritm of steering actuator */
+		switch (steering_actuator.state)
+		{
+		case ACTUATOR_OFF:
+			if (steering_actuator.prev_state != steering_actuator.state)
+				actuator_disable(&steering_actuator);
 			break;
-
-		case ACTUATORS_ON:
-			if (actuators.prev_state != actuators.state)
-			{
-				start_servo(&actuators);
-			}
-			set_left_servo_sp(&actuators, ab_ptr->radio.steering);
+		case ACTUATOR_ON:
+			if (steering_actuator.prev_state != steering_actuator.state)
+				actuator_enable(&steering_actuator);
+			actuator_set_setpoint(&steering_actuator, steering_sp);
 			break;
-
-		case ACTUATORS_AUTO_CALIBRATION:
-			if (actuators.prev_state != actuators.state)
-			{
-				start_servo(&actuators);
-			}
-
-			static uint32_t left = 1500;
-			static uint32_t right = 1500;
-
-			set_left_servo_sp(&actuators, left);
-			set_right_servo_sp(&actuators, right);
-			break;
-
-		case ACTUATORS_RANGE_IDENTIFICATION:
-			if (actuators.prev_state != actuators.state)
-			{
-				start_servo(&actuators);
-			}
-
-			uint32_t sp = actuators_range_identification();
-
-			set_left_servo_sp(&actuators, sp);
-			set_right_servo_sp(&actuators, sp);
-			break;
-
 		default:
-			if (actuators.prev_state != actuators.state)
-			{
-				stop_servo(&actuators);
-			}
+			if (steering_actuator.prev_state != steering_actuator.state)
+				actuator_disable(&steering_actuator);
 			break;
 		}
-		actuators.prev_state = actuators.state;
+		steering_actuator.prev_state = steering_actuator.state;
+
+		// TODO repeat above for second actuator :>
 
 		task_servo_control_alive++;
 		osDelay(10);
 	}
 }
 
-
-static uint32_t actuators_range_identification(void)
-{
-	static enum {
-		IDLE_AT_900,
-		STEP_TO_2100,
-		IDLE_AT_2100,
-		SWEEP_UP,
-		IDLE_AT_TOP,
-		SWEEP_DOWN
-	} id_state = IDLE_AT_900;
-
-	static uint32_t calib_sp = 900;
-	static uint32_t hold_counter = 0;
-	static uint32_t sweep_counter = 0;
-
-	switch(id_state)
-	{
-	case IDLE_AT_900:
-		calib_sp = 900;
-		if (++hold_counter >= 100) // 100 * 10ms = 1s
-		{
-			hold_counter = 0;
-			id_state = STEP_TO_2100;
-		}
-		break;
-
-	case STEP_TO_2100:
-		calib_sp = 2100;
-		id_state = IDLE_AT_2100;
-		break;
-
-	case IDLE_AT_2100:
-		if (++hold_counter >= 100)
-		{
-			hold_counter = 0;
-			id_state = SWEEP_UP;  // go to sweep up (incrementing)
-			calib_sp = 900;       // start sweep from 900
-		}
-		break;
-
-	case SWEEP_UP:
-		if (++sweep_counter >= 10) // N iterations between increments
-		{
-			sweep_counter = 0;
-			if (calib_sp < 2100)
-				calib_sp++;
-			else
-				id_state = IDLE_AT_TOP;
-		}
-		break;
-
-	case IDLE_AT_TOP:
-		if (++hold_counter >= 100)
-		{
-			hold_counter = 0;
-			id_state = SWEEP_DOWN;
-		}
-		break;
-
-	case SWEEP_DOWN:
-		if (++sweep_counter >= 10)
-		{
-			sweep_counter = 0;
-			if (calib_sp > 900)
-				calib_sp--;
-			else
-				id_state = IDLE_AT_900;
-		}
-		break;
-	}
-	return calib_sp;
-}
+//
+//static uint32_t actuators_range_identification(void)
+//{
+//	static enum {
+//		IDLE_AT_900,
+//		STEP_TO_2100,
+//		IDLE_AT_2100,
+//		SWEEP_UP,
+//		IDLE_AT_TOP,
+//		SWEEP_DOWN
+//	} id_state = IDLE_AT_900;
+//
+//	static uint32_t calib_sp = 900;
+//	static uint32_t hold_counter = 0;
+//	static uint32_t sweep_counter = 0;
+//
+//	switch(id_state)
+//	{
+//	case IDLE_AT_900:
+//		calib_sp = 900;
+//		if (++hold_counter >= 100) // 100 * 10ms = 1s
+//		{
+//			hold_counter = 0;
+//			id_state = STEP_TO_2100;
+//		}
+//		break;
+//
+//	case STEP_TO_2100:
+//		calib_sp = 2100;
+//		id_state = IDLE_AT_2100;
+//		break;
+//
+//	case IDLE_AT_2100:
+//		if (++hold_counter >= 100)
+//		{
+//			hold_counter = 0;
+//			id_state = SWEEP_UP;  // go to sweep up (incrementing)
+//			calib_sp = 900;       // start sweep from 900
+//		}
+//		break;
+//
+//	case SWEEP_UP:
+//		if (++sweep_counter >= 10) // N iterations between increments
+//		{
+//			sweep_counter = 0;
+//			if (calib_sp < 2100)
+//				calib_sp++;
+//			else
+//				id_state = IDLE_AT_TOP;
+//		}
+//		break;
+//
+//	case IDLE_AT_TOP:
+//		if (++hold_counter >= 100)
+//		{
+//			hold_counter = 0;
+//			id_state = SWEEP_DOWN;
+//		}
+//		break;
+//
+//	case SWEEP_DOWN:
+//		if (++sweep_counter >= 10)
+//		{
+//			sweep_counter = 0;
+//			if (calib_sp > 900)
+//				calib_sp--;
+//			else
+//				id_state = IDLE_AT_900;
+//		}
+//		break;
+//	}
+//	return calib_sp;
+//}
