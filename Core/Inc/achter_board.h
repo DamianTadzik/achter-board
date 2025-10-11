@@ -42,32 +42,33 @@ typedef struct {
 typedef struct {
 	uint8_t axis_current_state;
 
-
 } odesc_feedback_t;
 
 typedef struct {
-	float angle;	// This is obtained via CAN interface
-} control_request_t;
-
-typedef struct {
 	float voltage;
+	uint16_t raw_adc;
+	int16_t setpoint_us;
+	uint8_t mode;
 } servo_feedback_t;
 
 typedef struct {
 	uint8_t range_mm;
+	int32_t signalRate_mcps;
+	uint8_t errorStatus;
 } range_meas_t;
 
 typedef struct {
     float voltage;
     float current;
+    float power;
 } servo_power_data_t;
 
 typedef struct {
-	servo_power_data_t left_servo_power;
-	servo_power_data_t right_servo_power;
+	servo_power_data_t steering_servo_power;
+	servo_power_data_t rear_servo_power;
 
-	servo_feedback_t left_servo_feedback;
-	servo_feedback_t right_servo_feedback;
+	servo_feedback_t steering_servo_feedback;
+	servo_feedback_t rear_servo_feedback;
 
 	range_meas_t left_tof;
 	range_meas_t right_tof;

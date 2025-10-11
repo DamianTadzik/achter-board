@@ -30,6 +30,7 @@
 #include "can-not/can_not.h"
 
 #include "task_can_rx.h"
+#include "task_can_tx.h"
 #include "task_adc.h"
 #include "task_servo_control.h"
 #include "task_servo_power_monitor.h"
@@ -62,6 +63,13 @@ osThreadId_t task_can_rx_handle;
 const osThreadAttr_t task_can_rx_attributes = {
   .name = "task_can_rx",
   .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+
+osThreadId_t task_can_tx_handle;
+const osThreadAttr_t task_can_tx_attributes = {
+  .name = "task_can_tx",
+  .stack_size = 64 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -186,6 +194,9 @@ void MX_FREERTOS_Init(void) {
   task_can_rx_handle = osThreadNew(task_can_rx, NULL, &task_can_rx_attributes);
   res = xPortGetFreeHeapSize();
 
+  task_can_tx_handle = osThreadNew(task_can_tx, NULL, &task_can_tx_attributes);
+  res = xPortGetFreeHeapSize();
+
   task_adc_handle = osThreadNew(task_adc, NULL, &task_adc_attributes);
   res = xPortGetFreeHeapSize();
 
@@ -223,6 +234,7 @@ void MX_FREERTOS_Init(void) {
   * @retval None
   */
 volatile uint32_t task_can_rx_alive;
+volatile uint32_t task_can_tx_alive;
 volatile uint32_t task_adc_alive;
 volatile uint32_t task_servo_control_alive;
 volatile uint32_t task_servo_power_monitor_alive;
@@ -232,6 +244,7 @@ volatile uint32_t task_crsf_transmitter_alive;
 volatile uint32_t task_motor_control_alive;
 volatile UBaseType_t task_default_high_watermark;
 volatile UBaseType_t task_can_rx_high_watermark;
+volatile UBaseType_t task_can_tx_high_watermark;
 volatile UBaseType_t task_adc_high_watermark;
 volatile UBaseType_t task_servo_control_high_watermark;
 volatile UBaseType_t task_servo_power_monitor_high_watermark;
@@ -253,9 +266,10 @@ void StartDefaultTask(void *argument)
 	  osDelay(500);
 
 	  task_default_high_watermark	= uxTaskGetStackHighWaterMark(NULL);
-	  task_can_rx_high_watermark           = uxTaskGetStackHighWaterMark((TaskHandle_t)task_can_rx_handle);
-	  task_adc_high_watermark              = uxTaskGetStackHighWaterMark((TaskHandle_t)task_adc_handle);
-	  task_servo_control_high_watermark    = uxTaskGetStackHighWaterMark((TaskHandle_t)task_servo_control_handle);
+	  task_can_rx_high_watermark           	= uxTaskGetStackHighWaterMark((TaskHandle_t)task_can_rx_handle);
+	  task_can_tx_high_watermark			= uxTaskGetStackHighWaterMark((TaskHandle_t)task_can_tx_handle);
+	  task_adc_high_watermark              	= uxTaskGetStackHighWaterMark((TaskHandle_t)task_adc_handle);
+	  task_servo_control_high_watermark    	= uxTaskGetStackHighWaterMark((TaskHandle_t)task_servo_control_handle);
 	  task_servo_power_monitor_high_watermark = uxTaskGetStackHighWaterMark((TaskHandle_t)task_servo_power_monitor_handle);
 	  task_range_meas_high_watermark       = uxTaskGetStackHighWaterMark((TaskHandle_t)task_range_meas_handle);
 	  task_crsf_receiver_high_watermark       = uxTaskGetStackHighWaterMark((TaskHandle_t)task_crsf_receiver_handle);

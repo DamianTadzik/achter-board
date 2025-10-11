@@ -126,8 +126,8 @@ void task_servo_control(void* argument)
 
 	while (1)
 	{
-		/* Obtain control signals from CAN/RADIO */
 
+		/* Obtain control signals from CAN/RADIO */
 		int16_t steering_sp = map_i16(ab_ptr->from_radio.steering,
 									   -1000, 1000,
 									   1100, 1900); // TODO fix this
@@ -140,7 +140,6 @@ void task_servo_control(void* argument)
 		{
 			steering_actuator.state = ACTUATOR_OFF;
 		}
-
 
 		/* Execute control alghoritm of steering actuator */
 		switch (steering_actuator.state)
@@ -160,6 +159,12 @@ void task_servo_control(void* argument)
 			break;
 		}
 		steering_actuator.prev_state = steering_actuator.state;
+
+		/* Save setpoint and mode in the ab structure for feedback */
+		ab_ptr->steering_servo_feedback.mode = steering_actuator.state;
+		ab_ptr->steering_servo_feedback.setpoint_us = steering_sp;
+
+
 
 		// TODO repeat above for second actuator :>
 

@@ -102,8 +102,11 @@ void task_adc(void *argument)
 		TEMPERATURE = 25.0f + (s_voltages[channel_Temperature_Sensor] - 1.43f) / 0.0043f;
 
 		/* Save what necessary in the achter_board_t structure */
-		ab_ptr->left_servo_feedback.voltage  = s_voltages[channel_1];
-		ab_ptr->right_servo_feedback.voltage = s_voltages[channel_4];
+		ab_ptr->rear_servo_feedback.voltage = s_voltages[channel_1];
+		ab_ptr->rear_servo_feedback.raw_adc = avg[channel_1];
+
+		ab_ptr->steering_servo_feedback.voltage = s_voltages[channel_4];
+		ab_ptr->steering_servo_feedback.raw_adc	= avg[channel_4];
 
 		task_adc_alive++;
 	}

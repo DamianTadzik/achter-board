@@ -77,18 +77,24 @@ void task_range_meas(void *argument)
 	{
         uint32_t f = osThreadFlagsWait(TOF1_FLAG|TOF2_FLAG, osFlagsWaitAny, 200);
 
-        if (f & TOF1_FLAG) {
+        if (f & TOF1_FLAG)
+        {
             VL6180_RangeGetMeasurement(&tof1, &d);
             VL6180_RangeClearInterrupt(&tof1);
 
-            ab_ptr->left_tof.range_mm = d.range_mm;
+            ab_ptr->right_tof.range_mm = d.range_mm;
+            ab_ptr->right_tof.signalRate_mcps = d.signalRate_mcps;
+            ab_ptr->right_tof.errorStatus = d.errorStatus;
         }
 
-        if (f & TOF2_FLAG) {
+        if (f & TOF2_FLAG)
+        {
             VL6180_RangeGetMeasurement(&tof2, &d);
             VL6180_RangeClearInterrupt(&tof2);
 
-            ab_ptr->right_tof.range_mm = d.range_mm;
+            ab_ptr->left_tof.range_mm = d.range_mm;
+            ab_ptr->left_tof.signalRate_mcps = d.signalRate_mcps;
+            ab_ptr->left_tof.errorStatus = d.errorStatus;
         }
 
         // można też w timeout zrobić sanity poll: VL6180_RangeGetMeasurementIfReady(...)
