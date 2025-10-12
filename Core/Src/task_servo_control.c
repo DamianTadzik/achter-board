@@ -113,7 +113,7 @@ static void actuator_disable(actuator_t *hact)
     }
 }
 
-static uint32_t actuators_range_identification(void);
+//static uint32_t actuators_range_identification(void);
 
 extern volatile uint32_t task_servo_control_alive;
 void task_servo_control(void* argument)
@@ -167,7 +167,7 @@ void task_servo_control(void* argument)
 		steering_actuator.prev_state = steering_actuator.state;
 
 
-		/* Execute control alghoritm of right foil actuator */
+		/* Execute control alghoritm of rear foil actuator */
 		switch (rear_foil_actuator.state)
 		{
 		case ACTUATOR_OFF:
@@ -198,7 +198,31 @@ void task_servo_control(void* argument)
 	}
 }
 
+
+//		case ACTUATOR_AUTO_CALIBRATION:
+//			/* Enabling the actuator */
+//			if (left_foil_actuator.prev_state != left_foil_actuator.state)
+//				actuator_enable(&left_foil_actuator);
+//			/* Set sp to already known position */
+//			actuator_set_setpoint(&left_foil_actuator, 1500);
+//			//crude delay 1s
+//			static int delay_before_homing = 100;
+//			if (delay_before_homing-- > 0) break;
 //
+//			/* Endpoint finding */
+//			// Increase in the setpoint
+//			actuator_set_setpoint(&left_foil_actuator, left_foil_actuator.timer.requested_setpoint++);
+//			// Check current
+//			if (abs(fb_ptr->left_servo_power.current) > 0.5)
+//			{
+//				// Found the end?
+//				actuator_set_setpoint(&left_foil_actuator, left_foil_actuator.timer.requested_setpoint - 2);
+//			}
+//			// reset crude delay
+//			delay_before_homing = 100;
+//			break;
+
+
 //static uint32_t actuators_range_identification(void)
 //{
 //	static enum {

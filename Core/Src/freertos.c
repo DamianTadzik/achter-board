@@ -257,7 +257,7 @@ volatile UBaseType_t task_motor_control_high_watermark;
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
-	achter_board_t* ab_ptr = achter_board_get_ptr();
+//	achter_board_t* ab_ptr = achter_board_get_ptr();
 	osDelay(1000);
   /* Infinite loop */
   for(;;)

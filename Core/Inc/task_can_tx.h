@@ -10,7 +10,7 @@
 
 #include "achter_board.h"
 
-void send_cmmc_radio_control(achter_board_t* ab_ptr);
+void send_radio_control(achter_board_t* ab_ptr);
 
 void task_can_tx(void *argument);
 

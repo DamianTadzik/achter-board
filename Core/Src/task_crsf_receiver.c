@@ -110,6 +110,8 @@ void task_crsf_receiver(void *argument)
         	// TODO: call your safe-shutdown / disarm routine
         	ab_ptr->from_radio.throttle = 0;
         	ab_ptr->from_radio.steering = 0;
+
+        	ab_ptr->from_radio.arm_switch = 0;
         }
         else
         {
@@ -117,6 +119,6 @@ void task_crsf_receiver(void *argument)
         }
 
         /* Send radio controls over CAN */
-        send_cmmc_radio_control(ab_ptr);
+        send_radio_control(ab_ptr);
     }
 }

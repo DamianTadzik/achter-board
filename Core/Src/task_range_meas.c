@@ -98,7 +98,6 @@ void task_range_meas(void *argument)
         }
 
         // można też w timeout zrobić sanity poll: VL6180_RangeGetMeasurementIfReady(...)
-
         task_range_meas_alive++;
 	}
 }

@@ -14,7 +14,7 @@
 #include "string.h"
 
 
-void send_cmmc_radio_control(achter_board_t* ab_ptr)
+void send_radio_control(achter_board_t* ab_ptr)
 {
 	struct cmmc_radio_control_t tmp = {
 			.throttle = cmmc_radio_control_throttle_encode(ab_ptr->from_radio.throttle),
@@ -34,7 +34,7 @@ void send_cmmc_radio_control(achter_board_t* ab_ptr)
 	cant_transmit(&msg);
 }
 
-static void send_cmmc_distance_achter_feedback(achter_board_t* ab_ptr)
+static void send_distance_achter_feedback(achter_board_t* ab_ptr)
 {
 	struct cmmc_distance_achter_feedback_t tmp = {
 			.range_mm_l = cmmc_distance_achter_feedback_range_mm_l_encode(ab_ptr->left_tof.range_mm),
@@ -53,7 +53,7 @@ static void send_cmmc_distance_achter_feedback(achter_board_t* ab_ptr)
 	cant_transmit(&msg);
 }
 
-static void send_cmmc_actuator_steering_feedback(achter_board_t* ab_ptr)
+static void send_actuator_steering_feedback(achter_board_t* ab_ptr)
 {
 	struct cmmc_actuator_steering_feedback_t tmp = {
 			.current = cmmc_actuator_steering_feedback_current_encode(ab_ptr->steering_servo_power.current),
@@ -72,7 +72,7 @@ static void send_cmmc_actuator_steering_feedback(achter_board_t* ab_ptr)
 	cant_transmit(&msg);
 }
 
-static void send_cmmc_actuator_rear_foil_feedback(achter_board_t* ab_ptr)
+static void send_actuator_rear_foil_feedback(achter_board_t* ab_ptr)
 {
 	struct cmmc_actuator_rear_foil_feedback_t tmp = {
 			.current = cmmc_actuator_rear_foil_feedback_current_encode(ab_ptr->rear_servo_power.current),
@@ -91,54 +91,40 @@ static void send_cmmc_actuator_rear_foil_feedback(achter_board_t* ab_ptr)
 	cant_transmit(&msg);
 }
 
-static uint32_t distance_achter_feedback_message_period = 1;
-static uint32_t actuator_steering_feedback_message_period = 1;
-static uint32_t actuator_rear_foil_feedback_message_period = 1;
+static uint32_t distance_achter_feedback_message_period = 10;
+static uint32_t actuator_steering_feedback_message_period = 10;
+static uint32_t actuator_rear_foil_feedback_message_period = 10;
 
 extern volatile uint32_t task_can_tx_alive;
 void task_can_tx(void *argument)
 {
 	achter_board_t* ab_ptr = achter_board_get_ptr();
 
-	uint32_t distance_achter_feedback_message_counter = distance_achter_feedback_message_period;
-	uint32_t actuator_steering_feedback_message_counter = actuator_steering_feedback_message_period;
-	uint32_t actuator_rear_foil_feedback_message_counter = actuator_rear_foil_feedback_message_period;
+	uint32_t distance_achter_feedback_message_counter = 0;
+	uint32_t actuator_steering_feedback_message_counter = 0;
+	uint32_t actuator_rear_foil_feedback_message_counter = 0;
 
 	while (1)
 	{
-		if (distance_achter_feedback_message_counter)
+		if (++distance_achter_feedback_message_counter >= distance_achter_feedback_message_period)
 		{
-			distance_achter_feedback_message_counter--;
-		}
-		else
-		{
-			distance_achter_feedback_message_counter = distance_achter_feedback_message_period;
-			send_cmmc_distance_achter_feedback(ab_ptr);
+			distance_achter_feedback_message_counter = 0;
+			send_distance_achter_feedback(ab_ptr);
 		}
 
-
-		if (actuator_steering_feedback_message_counter)
+		if (++actuator_steering_feedback_message_counter >= actuator_steering_feedback_message_period)
 		{
-			actuator_steering_feedback_message_counter--;
-		}
-		else
-		{
-			actuator_steering_feedback_message_counter = actuator_steering_feedback_message_period;
-			send_cmmc_actuator_steering_feedback(ab_ptr);
+			actuator_steering_feedback_message_counter = 0;
+			send_actuator_steering_feedback(ab_ptr);
 		}
 
-
-		if (actuator_rear_foil_feedback_message_counter)
+		if (++actuator_rear_foil_feedback_message_counter >= actuator_rear_foil_feedback_message_period)
 		{
-			actuator_rear_foil_feedback_message_counter--;
-		}
-		else
-		{
-			actuator_rear_foil_feedback_message_counter = actuator_rear_foil_feedback_message_period;
-			send_cmmc_actuator_rear_foil_feedback(ab_ptr);
+			actuator_rear_foil_feedback_message_counter = 0;
+			send_actuator_rear_foil_feedback(ab_ptr);
 		}
 
 		task_can_tx_alive++;
-		osDelay(1000);
+		osDelay(10);
 	}
 }
