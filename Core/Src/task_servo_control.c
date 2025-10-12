@@ -33,7 +33,6 @@ typedef struct {
 } actuator_t;
 
 
-
 actuator_t rear_foil_actuator = {
 		.prev_state = ACTUATOR_OFF,
 		.state = ACTUATOR_OFF, // ACTUATORS_IDENTIFICATION
@@ -54,7 +53,6 @@ actuator_t steering_actuator = {
 				.setpoint_upper_bound = 2000,
 		},
 };
-
 
 // FT1117M 120* for range 900 to 2100 that gives 120/(2100-900) = 120 / 1200 = 1/10
 // 1 degree per 10 us
@@ -80,7 +78,6 @@ static inline int16_t map_i16(int16_t x,
     int32_t denom = (int32_t)(in_max - in_min);
     return (int16_t)(out_min + num / denom);
 }
-
 
 
 static void actuator_set_setpoint(actuator_t *hact, int16_t requested_setpoint)
@@ -123,22 +120,31 @@ void task_servo_control(void* argument)
 {
 	achter_board_t* ab_ptr = achter_board_get_ptr();
 
-
 	while (1)
 	{
-
 		/* Obtain control signals from CAN/RADIO */
 		int16_t steering_sp = map_i16(ab_ptr->from_radio.steering,
 									   -1000, 1000,
 									   1100, 1900); // TODO fix this
 
-		if (ab_ptr->from_radio.arm_switch == ARMED_STEERING_PROPULSION || ab_ptr->from_radio.arm_switch == ARMED_ALL)
+		int16_t rear_foil_sp = map_i16(ab_ptr->from_radio.rear_pitch_sp,
+									   -1000, 1000,
+									   1460, 1660);
+
+		if (ab_ptr->from_radio.arm_switch == ARMED_STEERING_PROPULSION)
 		{
 			steering_actuator.state = ACTUATOR_ON;
+			rear_foil_actuator.state = ACTUATOR_OFF;
+		}
+		else if (ab_ptr->from_radio.arm_switch == ARMED_ALL)
+		{
+			steering_actuator.state = ACTUATOR_ON;
+			rear_foil_actuator.state = ACTUATOR_ON;
 		}
 		else if (ab_ptr->from_radio.arm_switch == DISARMED)
 		{
 			steering_actuator.state = ACTUATOR_OFF;
+			rear_foil_actuator.state = ACTUATOR_OFF;
 		}
 
 		/* Execute control alghoritm of steering actuator */
@@ -160,13 +166,32 @@ void task_servo_control(void* argument)
 		}
 		steering_actuator.prev_state = steering_actuator.state;
 
+
+		/* Execute control alghoritm of right foil actuator */
+		switch (rear_foil_actuator.state)
+		{
+		case ACTUATOR_OFF:
+			if (rear_foil_actuator.prev_state != rear_foil_actuator.state)
+				actuator_disable(&rear_foil_actuator);
+			break;
+		case ACTUATOR_ON:
+			if (rear_foil_actuator.prev_state != rear_foil_actuator.state)
+				actuator_enable(&rear_foil_actuator);
+			actuator_set_setpoint(&rear_foil_actuator, rear_foil_sp);
+			break;
+		default:
+			if (rear_foil_actuator.prev_state != rear_foil_actuator.state)
+				actuator_disable(&rear_foil_actuator);
+			break;
+		}
+		rear_foil_actuator.prev_state = rear_foil_actuator.state;
+
 		/* Save setpoint and mode in the ab structure for feedback */
 		ab_ptr->steering_servo_feedback.mode = steering_actuator.state;
 		ab_ptr->steering_servo_feedback.setpoint_us = steering_sp;
 
-
-
-		// TODO repeat above for second actuator :>
+		ab_ptr->rear_servo_feedback.mode = rear_foil_actuator.state;
+		ab_ptr->rear_servo_feedback.setpoint_us = rear_foil_sp;
 
 		task_servo_control_alive++;
 		osDelay(10);

@@ -265,15 +265,15 @@ void StartDefaultTask(void *argument)
 	  HAL_GPIO_TogglePin(GPIO_LED_GPIO_Port, GPIO_LED_Pin);
 	  osDelay(500);
 
-	  task_default_high_watermark	= uxTaskGetStackHighWaterMark(NULL);
+	  task_default_high_watermark			= uxTaskGetStackHighWaterMark(NULL);
 	  task_can_rx_high_watermark           	= uxTaskGetStackHighWaterMark((TaskHandle_t)task_can_rx_handle);
 	  task_can_tx_high_watermark			= uxTaskGetStackHighWaterMark((TaskHandle_t)task_can_tx_handle);
 	  task_adc_high_watermark              	= uxTaskGetStackHighWaterMark((TaskHandle_t)task_adc_handle);
 	  task_servo_control_high_watermark    	= uxTaskGetStackHighWaterMark((TaskHandle_t)task_servo_control_handle);
 	  task_servo_power_monitor_high_watermark = uxTaskGetStackHighWaterMark((TaskHandle_t)task_servo_power_monitor_handle);
-	  task_range_meas_high_watermark       = uxTaskGetStackHighWaterMark((TaskHandle_t)task_range_meas_handle);
-	  task_crsf_receiver_high_watermark       = uxTaskGetStackHighWaterMark((TaskHandle_t)task_crsf_receiver_handle);
-	  task_crsf_transmitter_high_watermark    = uxTaskGetStackHighWaterMark((TaskHandle_t)task_crsf_transmitter_handle);
+	  task_range_meas_high_watermark       	= uxTaskGetStackHighWaterMark((TaskHandle_t)task_range_meas_handle);
+	  task_crsf_receiver_high_watermark     = uxTaskGetStackHighWaterMark((TaskHandle_t)task_crsf_receiver_handle);
+	  task_crsf_transmitter_high_watermark  = uxTaskGetStackHighWaterMark((TaskHandle_t)task_crsf_transmitter_handle);
 	  task_motor_control_high_watermark 	= uxTaskGetStackHighWaterMark((TaskHandle_t)task_motor_control_handle);
   }
   /* USER CODE END StartDefaultTask */

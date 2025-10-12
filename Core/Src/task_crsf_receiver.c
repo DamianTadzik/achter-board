@@ -10,6 +10,8 @@
 #include "cmsis_os2.h"
 #include "achter_board.h"
 
+#include "task_can_tx.h"
+
 
 static inline uint16_t map_u16(uint16_t x,
                                uint16_t in_min,  uint16_t in_max,
@@ -113,5 +115,8 @@ void task_crsf_receiver(void *argument)
         {
         	ab_ptr->from_radio.is_connected = 1;
         }
+
+        /* Send radio controls over CAN */
+        send_cmmc_radio_control(ab_ptr);
     }
 }

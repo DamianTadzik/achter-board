@@ -13,6 +13,27 @@
 #include "can-messages-mini-celka/src/cmmc.h"
 #include "string.h"
 
+
+void send_cmmc_radio_control(achter_board_t* ab_ptr)
+{
+	struct cmmc_radio_control_t tmp = {
+			.throttle = cmmc_radio_control_throttle_encode(ab_ptr->from_radio.throttle),
+			.steering = cmmc_radio_control_steering_encode(ab_ptr->from_radio.steering),
+			.front_pitch = cmmc_radio_control_front_pitch_encode(ab_ptr->from_radio.front_pitch_sp),
+			.front_roll = cmmc_radio_control_front_roll_encode(ab_ptr->from_radio.front_roll_sp),
+			.rear_pitch = cmmc_radio_control_rear_pitch_encode(ab_ptr->from_radio.rear_pitch_sp),
+			.arm_switch = cmmc_radio_control_arm_switch_encode(ab_ptr->from_radio.arm_switch),
+			.mode_switch = cmmc_radio_control_mode_switch_encode(ab_ptr->from_radio.mode_switch),
+	};
+	cant_generic_struct_t msg = {
+			.msg_dlc	= CMMC_RADIO_CONTROL_LENGTH,
+			.msg_id		= CMMC_RADIO_CONTROL_FRAME_ID,
+			.msg_payload = { 0U },
+	};
+	cmmc_radio_control_pack(msg.msg_payload, &tmp, msg.msg_dlc);
+	cant_transmit(&msg);
+}
+
 static void send_cmmc_distance_achter_feedback(achter_board_t* ab_ptr)
 {
 	struct cmmc_distance_achter_feedback_t tmp = {
