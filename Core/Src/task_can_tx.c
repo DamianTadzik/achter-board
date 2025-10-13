@@ -104,6 +104,8 @@ void task_can_tx(void *argument)
 	uint32_t actuator_steering_feedback_message_counter = 0;
 	uint32_t actuator_rear_foil_feedback_message_counter = 0;
 
+	uint32_t xd_cnt = 0;
+
 	while (1)
 	{
 		if (++distance_achter_feedback_message_counter >= distance_achter_feedback_message_period)
@@ -122,6 +124,25 @@ void task_can_tx(void *argument)
 		{
 			actuator_rear_foil_feedback_message_counter = 0;
 			send_actuator_rear_foil_feedback(ab_ptr);
+		}
+
+		if (++xd_cnt >= 10)
+		{
+			cant_generic_struct_t frame;
+
+		    // === 1) Get_Iq ===
+		    frame.msg_id = (0 << 5) | 0x014;  // (node_id, cmd_id)
+		    frame.msg_dlc = 0;                      // no payload
+		    frame.padding = 0;
+		    memset(frame.msg_payload, 0, 8);
+		    cant_transmit(&frame);
+
+		    // === 2) Get_Vbus_Voltage ===
+		    frame.msg_id = (0 << 5) | 0x017;
+		    frame.msg_dlc = 0;
+		    frame.padding = 0;
+		    memset(frame.msg_payload, 0, 8);
+		    cant_transmit(&frame);
 		}
 
 		task_can_tx_alive++;
