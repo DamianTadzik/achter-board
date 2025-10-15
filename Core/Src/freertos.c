@@ -76,7 +76,7 @@ const osThreadAttr_t task_can_tx_attributes = {
 osThreadId_t task_adc_handle;
 const osThreadAttr_t task_adc_attributes = {
   .name = "task_adc",
-  .stack_size = 100 * 4,
+  .stack_size = 96 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -90,7 +90,7 @@ const osThreadAttr_t task_servo_control_attributes = {
 osThreadId_t task_servo_power_monitor_handle;
 const osThreadAttr_t task_servo_power_monitor_attributes = {
   .name = "task_servo_power_monitor",
-  .stack_size = 126 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
