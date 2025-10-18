@@ -125,7 +125,7 @@ void task_servo_control(void* argument)
 		/* Obtain control signals from CAN/RADIO */
 		int16_t steering_sp = map_i16(ab_ptr->from_radio.steering,
 									   -1000, 1000,
-									   1100, 1900); // TODO fix this
+									   1200, 1800); // TODO fix this
 
 		int16_t rear_foil_sp = map_i16(ab_ptr->from_radio.rear_pitch_sp,
 									   -1000, 1000,

@@ -69,7 +69,7 @@ void task_crsf_receiver(void *argument)
         {
             if (CRSF_GetChannels(ch, &age_us))
             {
-            	ab_ptr->from_radio.throttle = -map_i16(ch[0],
+            	ab_ptr->from_radio.throttle = map_i16(ch[0],
             									 	   172, 1811,
 													   -1000, 1000);
             	ab_ptr->from_radio.steering = map_i16(ch[1],
