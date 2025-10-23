@@ -10,12 +10,13 @@
 #include "achter_board.h"
 
 #include "tim.h"
+#include "math.h"
 
 typedef enum {
     ACTUATOR_OFF,
     ACTUATOR_ON,
-    ACTUATOR_AUTO_CALIBRATION,
-	ACTUATOR_RANGE_IDENTIFICATION,
+	ACTUATOR_AUTO_RANGE_IDENTIFICATION,
+	ACTUATOR_DEVELOPMENT,
 } actuator_state_t;
 
 typedef struct {
@@ -30,28 +31,35 @@ typedef struct {
 	actuator_state_t 	prev_state;
 	actuator_state_t 	state;
 	timer_wrapper_t 	timer;
+
+	int16_t		calibrated_setpoint_lower_bound;
+	int16_t		calibrated_setpoint_upper_bound;
 } actuator_t;
 
 
 actuator_t rear_foil_actuator = {
 		.prev_state = ACTUATOR_OFF,
-		.state = ACTUATOR_OFF, // ACTUATORS_IDENTIFICATION
+		.state = ACTUATOR_OFF,
 		.timer = {
 				.handle_ptr = &htim1,
 				.channel = 	TIM_CHANNEL_2,
 				.setpoint_lower_bound = 1000,
 				.setpoint_upper_bound = 2000,
 		},
+		.calibrated_setpoint_lower_bound = 1420,
+		.calibrated_setpoint_upper_bound = 1681,
 };
 actuator_t steering_actuator = {
 		.prev_state = ACTUATOR_OFF,
-		.state = ACTUATOR_OFF, // ACTUATORS_IDENTIFICATION
+		.state = ACTUATOR_OFF,
 		.timer = {
 				.handle_ptr = &htim1,
 				.channel = 	TIM_CHANNEL_1,
 				.setpoint_lower_bound = 1000,
 				.setpoint_upper_bound = 2000,
 		},
+		.calibrated_setpoint_lower_bound = 1326,
+		.calibrated_setpoint_upper_bound = 1608,
 };
 
 // FT1117M 120* for range 900 to 2100 that gives 120/(2100-900) = 120 / 1200 = 1/10
@@ -113,7 +121,238 @@ static void actuator_disable(actuator_t *hact)
     }
 }
 
-//static uint32_t actuators_range_identification(void);
+typedef enum {
+	HOMING_IDLE,
+	HOMING_MOVE_TO_LOWER,
+	HOMING_VERIFY_LOWER,
+	HOMING_MOVE_TO_UPPER,
+	HOMING_VERIFY_UPPER,
+	HOMING_RETURN_TO_CENTER,
+	HOMING_DONE,
+	HOMING_ERROR
+} homing_state_t;
+
+typedef struct {
+	homing_state_t phase;
+	uint16_t setpoint;
+	uint32_t stable_counter;
+	uint32_t timeout_start;
+	uint32_t next_step_time;
+	float filtered_current;
+	int16_t lower_found;
+	int16_t upper_found;
+} homing_ctx_t;
+
+static homing_ctx_t rear_homing_ctx = {0};
+
+const static float homing_filter_alpha = 0.1f;      // current low-pass filter
+const static uint16_t homing_step_us = 1;           // PWM step per loop
+const static uint32_t homing_step_interval_ms = 50; // time between PWM updates
+const static uint32_t homing_loop_period_ms = 10;   // same as osDelay(10)
+const static uint32_t homing_verify_time_ms = 200;  // time to confirm stall
+const static uint32_t homing_timeout_ms = 30000;     // total safety timeout
+
+static int actuator_range_identification(actuator_t *hact, float *ptr_current)
+{
+//	homing_ctx_t *ctx = (hact == &right_foil_actuator) ? &right_homing_ctx : &left_homing_ctx;
+	homing_ctx_t *ctx = &rear_homing_ctx;
+	uint32_t now;
+
+	// Low-pass filter on current
+	ctx->filtered_current = (1.0f - homing_filter_alpha) * ctx->filtered_current +
+	                        homing_filter_alpha * fabs((*ptr_current));
+
+	switch (ctx->phase)
+	{
+	case HOMING_IDLE:
+		ctx->setpoint = 1500;  // start from safe middle
+		actuator_set_setpoint(hact, ctx->setpoint);
+
+		ctx->lower_found = 0;
+		ctx->upper_found = 0;
+
+		ctx->timeout_start = osKernelGetTickCount();
+		ctx->next_step_time = ctx->timeout_start + 500;  // wait 0.5 s
+
+		ctx->phase = HOMING_MOVE_TO_LOWER;
+		break;
+
+	case HOMING_MOVE_TO_LOWER:
+	    now = osKernelGetTickCount();
+	    if (now < ctx->next_step_time)
+	        break;
+	    ctx->next_step_time = now + homing_step_interval_ms;
+		// if there is room for another move
+		if (ctx->setpoint > 1000 + homing_step_us)
+		{
+			// if current is still under the threshold
+			if (ctx->filtered_current < 0.08f) // [A]
+			{
+				// Move towards the endpoint
+				ctx->setpoint -= homing_step_us;
+				// Clear stable counter
+				ctx->stable_counter = 0;
+			}
+			else
+			{
+				ctx->stable_counter += homing_loop_period_ms;
+				// If we are long enough over the limit
+				if (ctx->stable_counter >= homing_verify_time_ms)
+				{
+					ctx->stable_counter = 0;
+
+					ctx->lower_found = ctx->setpoint;
+					ctx->phase = HOMING_VERIFY_LOWER;
+					break;
+				}
+			}
+		}
+		else
+		{
+			ctx->phase = HOMING_ERROR;
+			break;
+		}
+		actuator_set_setpoint(hact, ctx->setpoint);
+
+		// Timeout protection
+		if (osKernelGetTickCount() - ctx->timeout_start > homing_timeout_ms)
+			ctx->phase = HOMING_ERROR;
+		break;
+
+	case HOMING_VERIFY_LOWER:
+		// Move away a bit to release tension
+	    now = osKernelGetTickCount();
+	    if (now < ctx->next_step_time)
+	        break;
+	    ctx->next_step_time = now + homing_step_interval_ms;
+		// If there is room to move
+		if (ctx->setpoint < 2000 - homing_step_us)
+		{
+			// if current is still above the threshold
+			if (ctx->filtered_current > 0.025f) // [A]
+			{
+				// Move away from the endpoint
+				ctx->setpoint += homing_step_us;
+			}
+			else
+			{
+				ctx->lower_found = ctx->setpoint;
+				ctx->phase = HOMING_MOVE_TO_UPPER;
+				break;
+			}
+		}
+		else
+		{
+			ctx->phase = HOMING_ERROR;
+			break;
+		}
+		actuator_set_setpoint(hact, ctx->setpoint);
+
+		// Timeout protection
+		if (osKernelGetTickCount() - ctx->timeout_start > homing_timeout_ms)
+			ctx->phase = HOMING_ERROR;
+		break;
+
+
+	case HOMING_MOVE_TO_UPPER:
+	    now = osKernelGetTickCount();
+	    if (now < ctx->next_step_time)
+	        break;
+	    ctx->next_step_time = now + homing_step_interval_ms;
+		// if there is room for another move
+		if (ctx->setpoint < 2000 - homing_step_us)
+		{
+			// if current is still under the threshold
+			if (ctx->filtered_current < 0.08f) // [A]
+			{
+				// Move towards the endpoint
+				ctx->setpoint += homing_step_us;
+				// Clear stable counter
+				ctx->stable_counter = 0;
+			}
+			else
+			{
+				ctx->stable_counter += homing_loop_period_ms;
+				// If we are long enough over the limit
+				if (ctx->stable_counter >= homing_verify_time_ms)
+				{
+					ctx->stable_counter = 0;
+
+					ctx->upper_found = ctx->setpoint;
+					ctx->phase = HOMING_VERIFY_UPPER;
+					break;
+				}
+			}
+		}
+		else
+		{
+			ctx->phase = HOMING_ERROR;
+			break;
+		}
+		actuator_set_setpoint(hact, ctx->setpoint);
+
+		// Timeout protection
+		if (osKernelGetTickCount() - ctx->timeout_start > homing_timeout_ms)
+			ctx->phase = HOMING_ERROR;
+		break;
+
+	case HOMING_VERIFY_UPPER:
+		// Move away a bit to release tension
+	    now = osKernelGetTickCount();
+	    if (now < ctx->next_step_time)
+	        break;
+	    ctx->next_step_time = now + homing_step_interval_ms;
+		// If there is room to move
+		if (ctx->setpoint > 1000 + homing_step_us)
+		{
+			// if current is still above the threshold
+			if (ctx->filtered_current > 0.025f) // [A]
+			{
+				// Move away from the endpoint
+				ctx->setpoint -= homing_step_us;
+			}
+			else
+			{
+				ctx->upper_found = ctx->setpoint;
+				ctx->phase = HOMING_RETURN_TO_CENTER;
+				break;
+			}
+		}
+		else
+		{
+			ctx->phase = HOMING_ERROR;
+			break;
+		}
+		actuator_set_setpoint(hact, ctx->setpoint);
+
+		// Timeout protection
+		if (osKernelGetTickCount() - ctx->timeout_start > homing_timeout_ms)
+			ctx->phase = HOMING_ERROR;
+		break;
+
+
+	case HOMING_RETURN_TO_CENTER:
+		ctx->setpoint = (ctx->lower_found + ctx->upper_found) / 2;
+		actuator_set_setpoint(hact, ctx->setpoint);
+		ctx->phase = HOMING_DONE;
+		break;
+
+	case HOMING_DONE:
+		// Done save edge values in the scalling register
+		hact->calibrated_setpoint_lower_bound = ctx->lower_found+2;
+		hact->calibrated_setpoint_upper_bound = ctx->upper_found-2;
+		return 1;
+
+	case HOMING_ERROR:
+	default:
+		actuator_disable(hact);
+		return -1;
+	}
+
+	return 0; // not done yet
+}
+
+volatile int16_t development_setpoint = 1500;
 
 extern volatile uint32_t task_servo_control_alive;
 void task_servo_control(void* argument)
@@ -129,7 +368,9 @@ void task_servo_control(void* argument)
 
 		int16_t rear_foil_sp = map_i16(ab_ptr->from_radio.rear_pitch_sp,
 									   -1000, 1000,
-									   1460, 1660);
+										rear_foil_actuator.calibrated_setpoint_lower_bound,
+										rear_foil_actuator.calibrated_setpoint_upper_bound);
+
 
 		if (ab_ptr->from_radio.arm_switch == ARMED_STEERING_PROPULSION)
 		{
@@ -145,6 +386,16 @@ void task_servo_control(void* argument)
 		{
 			steering_actuator.state = ACTUATOR_OFF;
 			rear_foil_actuator.state = ACTUATOR_OFF;
+		}
+		else if (ab_ptr->from_radio.arm_switch == 0x04)
+		{
+			steering_actuator.state = ACTUATOR_OFF;
+			rear_foil_actuator.state = ACTUATOR_DEVELOPMENT;
+		}
+		else
+		{
+			steering_actuator.state = ACTUATOR_OFF;
+			rear_foil_actuator.state = ACTUATOR_AUTO_RANGE_IDENTIFICATION;
 		}
 
 		/* Execute control alghoritm of steering actuator */
@@ -179,6 +430,17 @@ void task_servo_control(void* argument)
 				actuator_enable(&rear_foil_actuator);
 			actuator_set_setpoint(&rear_foil_actuator, rear_foil_sp);
 			break;
+		case ACTUATOR_DEVELOPMENT:
+			if (rear_foil_actuator.prev_state != rear_foil_actuator.state)
+				actuator_enable(&rear_foil_actuator);
+			actuator_set_setpoint(&rear_foil_actuator, development_setpoint);
+			break;
+		case ACTUATOR_AUTO_RANGE_IDENTIFICATION:
+			if (rear_foil_actuator.prev_state != rear_foil_actuator.state)
+				actuator_enable(&rear_foil_actuator);
+			if (actuator_range_identification(&rear_foil_actuator, &ab_ptr->rear_servo_power.current))
+				rear_foil_actuator.state = ACTUATOR_DEVELOPMENT;
+			break;
 		default:
 			if (rear_foil_actuator.prev_state != rear_foil_actuator.state)
 				actuator_disable(&rear_foil_actuator);
@@ -197,101 +459,3 @@ void task_servo_control(void* argument)
 		osDelay(10);
 	}
 }
-
-
-//		case ACTUATOR_AUTO_CALIBRATION:
-//			/* Enabling the actuator */
-//			if (left_foil_actuator.prev_state != left_foil_actuator.state)
-//				actuator_enable(&left_foil_actuator);
-//			/* Set sp to already known position */
-//			actuator_set_setpoint(&left_foil_actuator, 1500);
-//			//crude delay 1s
-//			static int delay_before_homing = 100;
-//			if (delay_before_homing-- > 0) break;
-//
-//			/* Endpoint finding */
-//			// Increase in the setpoint
-//			actuator_set_setpoint(&left_foil_actuator, left_foil_actuator.timer.requested_setpoint++);
-//			// Check current
-//			if (abs(fb_ptr->left_servo_power.current) > 0.5)
-//			{
-//				// Found the end?
-//				actuator_set_setpoint(&left_foil_actuator, left_foil_actuator.timer.requested_setpoint - 2);
-//			}
-//			// reset crude delay
-//			delay_before_homing = 100;
-//			break;
-
-
-//static uint32_t actuators_range_identification(void)
-//{
-//	static enum {
-//		IDLE_AT_900,
-//		STEP_TO_2100,
-//		IDLE_AT_2100,
-//		SWEEP_UP,
-//		IDLE_AT_TOP,
-//		SWEEP_DOWN
-//	} id_state = IDLE_AT_900;
-//
-//	static uint32_t calib_sp = 900;
-//	static uint32_t hold_counter = 0;
-//	static uint32_t sweep_counter = 0;
-//
-//	switch(id_state)
-//	{
-//	case IDLE_AT_900:
-//		calib_sp = 900;
-//		if (++hold_counter >= 100) // 100 * 10ms = 1s
-//		{
-//			hold_counter = 0;
-//			id_state = STEP_TO_2100;
-//		}
-//		break;
-//
-//	case STEP_TO_2100:
-//		calib_sp = 2100;
-//		id_state = IDLE_AT_2100;
-//		break;
-//
-//	case IDLE_AT_2100:
-//		if (++hold_counter >= 100)
-//		{
-//			hold_counter = 0;
-//			id_state = SWEEP_UP;  // go to sweep up (incrementing)
-//			calib_sp = 900;       // start sweep from 900
-//		}
-//		break;
-//
-//	case SWEEP_UP:
-//		if (++sweep_counter >= 10) // N iterations between increments
-//		{
-//			sweep_counter = 0;
-//			if (calib_sp < 2100)
-//				calib_sp++;
-//			else
-//				id_state = IDLE_AT_TOP;
-//		}
-//		break;
-//
-//	case IDLE_AT_TOP:
-//		if (++hold_counter >= 100)
-//		{
-//			hold_counter = 0;
-//			id_state = SWEEP_DOWN;
-//		}
-//		break;
-//
-//	case SWEEP_DOWN:
-//		if (++sweep_counter >= 10)
-//		{
-//			sweep_counter = 0;
-//			if (calib_sp > 900)
-//				calib_sp--;
-//			else
-//				id_state = IDLE_AT_900;
-//		}
-//		break;
-//	}
-//	return calib_sp;
-//}

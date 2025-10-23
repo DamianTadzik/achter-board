@@ -21,7 +21,7 @@ typedef enum {
 	ADC_NUMBER_OF_CHANNELS,
 } ADC_channels_t;
 
-#define ADC_N_SAMPLES 8
+#define ADC_N_SAMPLES 16
 #define ADC_READY_FLAG 0x01
 
 /* Array for storing ADC results */
@@ -32,7 +32,7 @@ static uint8_t s_sample_idx = 0;
 /* Voltage results calculated from ADC results */
 static volatile float s_voltages[ADC_NUMBER_OF_CHANNELS];
 /* Dynamically calculated VDD value */
-static volatile float VDD = 0.0;
+static volatile float VDD = 3.3;
 static float TEMPERATURE = 0.0;
 
 ///* Various numbers used for calculations */
