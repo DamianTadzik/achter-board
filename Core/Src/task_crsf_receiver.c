@@ -44,6 +44,12 @@ static inline uint8_t switch_3_pos_decode_from_channel(uint16_t channel)
 	else return 1;
 }
 
+static inline uint8_t switch_2_pos_decode_from_channel(uint16_t channel)
+{
+	if (channel < 1006) return 0;
+	else return 1;
+}
+
 
 uint16_t ch[CRSF_MAX_CHANNEL];
 uint32_t age_us;
@@ -85,9 +91,8 @@ void task_crsf_receiver(void *argument)
             	ab_ptr->from_radio.rear_pitch_sp = map_i16(ch[4],
 						 	 	 	 	 	 	 	       172, 1811,
 													       -1000, 1000);
-            	ab_ptr->from_radio.free_knob =  map_i16(ch[5],
-	 	 	 	 	 	  	  	  	  	  	  	        172, 1811,
-												        -1000, 1000);
+
+            	ab_ptr->from_radio.sync_switch = switch_3_pos_decode_from_channel(ch[5]);
 
             	ab_ptr->from_radio.arm_switch = switch_3_pos_decode_from_channel(ch[6]);
             	ab_ptr->from_radio.mode_switch = switch_3_pos_decode_from_channel(ch[7]);
@@ -118,7 +123,8 @@ void task_crsf_receiver(void *argument)
         	ab_ptr->from_radio.is_connected = 1;
         }
 
-        /* Send radio controls over CAN */
-        send_radio_control(ab_ptr);
+//        /* Send radio controls over CAN */
+//        send_radio_control(ab_ptr);
+//        comment: this happens in different task: task_can_tx
     }
 }

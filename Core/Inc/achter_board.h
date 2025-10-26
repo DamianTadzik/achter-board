@@ -31,10 +31,11 @@ typedef struct {
 	int16_t front_roll_sp;
 	int16_t rear_pitch_sp;
 
-	int16_t free_knob;
+//	int16_t free_knob;
 
 	arm_switch_t arm_switch;
 	mode_switch_t mode_switch;
+	uint8_t sync_switch;
 
 	uint8_t is_connected;
 } radio_controls_t;

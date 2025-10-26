@@ -91,6 +91,7 @@ static void send_actuator_rear_foil_feedback(achter_board_t* ab_ptr)
 	cant_transmit(&msg);
 }
 
+static uint32_t radio_control_message_period = 2;
 static uint32_t distance_achter_feedback_message_period = 10;
 static uint32_t actuator_steering_feedback_message_period = 10;
 static uint32_t actuator_rear_foil_feedback_message_period = 10;
@@ -100,14 +101,19 @@ void task_can_tx(void *argument)
 {
 	achter_board_t* ab_ptr = achter_board_get_ptr();
 
+	uint32_t radio_control_message_counter = 0;
 	uint32_t distance_achter_feedback_message_counter = 0;
 	uint32_t actuator_steering_feedback_message_counter = 0;
 	uint32_t actuator_rear_foil_feedback_message_counter = 0;
 
-	uint32_t xd_cnt = 0;
-
 	while (1)
 	{
+        if (++radio_control_message_counter >= radio_control_message_period)
+        {
+            radio_control_message_counter = 0;
+            send_radio_control(ab_ptr);
+        }
+
 		if (++distance_achter_feedback_message_counter >= distance_achter_feedback_message_period)
 		{
 			distance_achter_feedback_message_counter = 0;
