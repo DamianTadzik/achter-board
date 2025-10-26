@@ -22,6 +22,7 @@ void send_radio_control(achter_board_t* ab_ptr)
 			.front_pitch = cmmc_radio_control_front_pitch_encode(ab_ptr->from_radio.front_pitch_sp),
 			.front_roll = cmmc_radio_control_front_roll_encode(ab_ptr->from_radio.front_roll_sp),
 			.rear_pitch = cmmc_radio_control_rear_pitch_encode(ab_ptr->from_radio.rear_pitch_sp),
+			.sync_switch = cmmc_radio_control_sync_switch_encode(ab_ptr->from_radio.sync_switch),
 			.arm_switch = cmmc_radio_control_arm_switch_encode(ab_ptr->from_radio.arm_switch),
 			.mode_switch = cmmc_radio_control_mode_switch_encode(ab_ptr->from_radio.mode_switch),
 	};
