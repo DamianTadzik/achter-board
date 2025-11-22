@@ -17,9 +17,9 @@ typedef enum {
 } arm_switch_t;
 
 typedef enum {
-	To,
-	Be,
-	Done,
+	MANUAL_RADIO,
+	MANUAL_CONTROLLER,
+	MANUAL_AUTO,
 } mode_switch_t;
 
 /* All values in following structure as like in the can should be normalized to permile */
@@ -39,6 +39,12 @@ typedef struct {
 
 	uint8_t is_connected;
 } radio_controls_t;
+
+typedef struct {
+	float front_left_angle;
+	float front_right_angle;
+	float rear_angle;
+} auto_control_t;
 
 typedef struct {
 	uint8_t axis_current_state;
@@ -76,6 +82,7 @@ typedef struct {
 	range_meas_t right_tof;
 
 	radio_controls_t from_radio;
+	auto_control_t from_controller;
 
 	odesc_feedback_t odesc;
 } achter_board_t;

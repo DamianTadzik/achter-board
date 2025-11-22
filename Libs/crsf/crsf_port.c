@@ -128,23 +128,35 @@ static void parser_on_byte(uint8_t b) {
                 } break;
 
                 case CRSF_FRAMETYPE_LINK_STATISTICS: {
-                    // Betaflight’s layout for 0x14; we only pick a few fields for now. :contentReference[oaicite:4]{index=4}
-                    const uint8_t *p = &s_frame.frame.payload[0];
-                    int8_t uplink_rssi_1 = -(int8_t)p[0];
-                    int8_t uplink_rssi_2 = -(int8_t)p[1];
-                    uint8_t uplink_lq    = p[2];
-                    int8_t uplink_snr    = (int8_t)p[3];
-                    // p[4]=active_antenna, p[5]=rf_mode, p[6]=tx_power
-                    int8_t down_rssi     = -(int8_t)p[7];
-                    uint8_t down_lq      = p[8];
-                    int8_t down_snr      = (int8_t)p[9];
+                	const uint8_t *p = s_frame.frame.payload;
+                    // Payload layout:
+                    // [0] RSSI 1 (uplink, negated dBm)
+                    // [1] RSSI 2 (uplink, negated dBm)
+                    // [2] LQ (uplink, %)
+                    // [3] SNR (uplink, signed dB)
+                    // [4] active antenna (0 or 1)
+                    // [5] RF mode (50/150/250/500 Hz)
+                    // [6] TX power (0=25mW, 1=100mW, etc.)
+                    // [7] RSSI (downlink, negated dBm)
+                    // [8] LQ (downlink, %)
+                    // [9] SNR (downlink, signed dB)
 
-                    s_link.uplink_snr_db      = uplink_snr;
-                    s_link.uplink_lq_percent  = uplink_lq;
-                    s_link.downlink_snr_db    = down_snr;
-                    s_link.downlink_lq_percent= down_lq;
-                    s_link.lastUpdateUs       = now;
+                    // ---- Uplink stats ----
+                    s_link.uplink_rssi_1_dbm  = -(int8_t)p[0];
+                    s_link.uplink_rssi_2_dbm  = -(int8_t)p[1];
+                    s_link.uplink_lq_percent  = p[2];
+                    s_link.uplink_snr_db      = (int8_t)p[3];
 
+                    // p[4] = active antenna
+                    // p[5] = rf mode
+                    // p[6] = tx power index
+
+                    // ---- Downlink stats ----
+                    s_link.downlink_rssi_dbm  = -(int8_t)p[7];
+                    s_link.downlink_lq_percent= p[8];
+                    s_link.downlink_snr_db    = (int8_t)p[9];
+
+                    s_link.lastUpdateUs = now;
                     if (s_notifyThread) { osThreadFlagsSet(s_notifyThread, CRSF_TFLAG_LINK_STATS); }
                 } break;
 

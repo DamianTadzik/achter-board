@@ -24,12 +24,17 @@ bool CRSF_Init(UART_HandleTypeDef *huart, TIM_HandleTypeDef *htim_us);
 // Latest raw (unscaled) channel value [0..15], thread-safe snapshot access
 bool CRSF_GetChannels(uint16_t out[CRSF_MAX_CHANNEL], uint32_t *age_us);
 
-// Link statistics (minimal subset you can extend later)
+// Link statistics
 typedef struct {
-    int8_t  uplink_snr_db;
+    int8_t  uplink_rssi_1_dbm;
+    int8_t  uplink_rssi_2_dbm;
     uint8_t uplink_lq_percent;
-    int8_t  downlink_snr_db;
+    int8_t  uplink_snr_db;
+
+    int8_t  downlink_rssi_dbm;
     uint8_t downlink_lq_percent;
+    int8_t  downlink_snr_db;
+
     uint32_t lastUpdateUs;
 } CRSF_LinkStats_t;
 
