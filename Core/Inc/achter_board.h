@@ -42,7 +42,8 @@ typedef struct {
 
 typedef struct {
 	uint8_t axis_current_state;
-
+	float bus_voltage;
+	float bus_current;
 } odesc_feedback_t;
 
 typedef struct {

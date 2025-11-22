@@ -15,42 +15,70 @@
 //// Global dummy telemetry value
 //volatile uint16_t g_dummy_millivolts_x100 = 1234; // 12.34 V demo
 //
-//static void pack_battery_payload(uint8_t *p) {
-//    // 0x08 Battery sensor (mV*100, mA*100, mAh (24-bit), %, see BF tx_crsf.c) :contentReference[oaicite:6]{index=6}
-//    uint16_t mvx100 = g_dummy_millivolts_x100;
-//    uint16_t maxx100 = 0;      // current (mA*100) dummy
-//    uint32_t mah = 0;          // fuel
-//    uint8_t  pct = 0;          // remaining
-//
-//    p[0] = (mvx100 >> 8) & 0xFF; p[1] = mvx100 & 0xFF;
-//    p[2] = (maxx100 >> 8) & 0xFF; p[3] = maxx100 & 0xFF;
-//    p[4] = (mah >> 16) & 0xFF; p[5] = (mah >> 8) & 0xFF; p[6] = mah & 0xFF;
-//    p[7] = pct;
-//}
+static void pack_battery_payload(uint8_t *p,
+		float voltage_v, float current_a)
+{
+    // Convert
+    uint16_t voltage_mv = (uint16_t)(voltage_v * 10.0f);
+    uint16_t current_ma = (uint16_t)(current_a * 10.0f);
+    uint32_t fuel_mah   = 0;  // set if you track mAh
+    uint8_t  pct        = 0;  // percentage (optional)
+
+    // Voltage (MSB first)
+    p[0] = (voltage_mv >> 8) & 0xFF;
+    p[1] = (voltage_mv >> 0) & 0xFF;
+
+    // Current (MSB first)
+    p[2] = (current_ma >> 8) & 0xFF;
+    p[3] = (current_ma >> 0) & 0xFF;
+
+    // Fuel (mAh), 24-bit
+    p[4] = (fuel_mah >> 0) & 0xFF;
+    p[5] = (fuel_mah >> 8) & 0xFF;
+    p[6] = (fuel_mah >> 16) & 0xFF;
+
+    // Battery percentage
+    p[7] = pct;
+}
 
 // ---- Transmitter: send telemetry every ~1s (or faster) ----
 extern volatile uint32_t task_crsf_transmitter_alive;
 void task_crsf_transmitter(void *argument)
 {
-    (void)argument;
-//    uint8_t payload[CRSF_FRAME_BATTERY_SENSOR_PAYLOAD_SIZE];
+	achter_board_t* ab_ptr = achter_board_get_ptr();
+//	ab_ptr->odesc.bus_voltage = 16.8;
+//	ab_ptr->odesc.bus_current = 2.5;
 
-    for (;;)
+    static uint32_t last_hb = 0;
+    static uint32_t last_bat = 0;
+
+    while (1)
     {
-    	task_crsf_transmitter_alive++;
-//        pack_battery_payload(payload);
-//
-//        (void)CRSF_TxSend(CRSF_FRAMETYPE_BATTERY_SENSOR, payload, sizeof(payload));
+    	uint32_t now = osKernelGetTickCount();
 
-		// --- Send CRSF Heartbeat (0x0B) ---
-		// Payload = 1 byte: Origin Device Address (use Flight Controller address 0xC8)
-		// Ref: CRSF heartbeat payload spec. :contentReference[oaicite:1]{index=1}
-    	if (0)
-		{
-			uint8_t hb_payload = CRSF_ADDRESS_FLIGHT_CONTROLLER; // 0xC8
-			(void)CRSF_TxSend(CRSF_FRAMETYPE_HEARTBEAT, &hb_payload, 1);
-		}
+        // ---- Battery telemetry every ~200 ms ----
+        if ((now - last_bat) >= 200)
+        {
+            last_bat = now;
 
-        osDelay(1000); // 1 Hz for now — you can reduce to e.g. 100-200ms if needed
+            uint8_t bat_payload[8]= { 0 };
+            float bus_v = ab_ptr->odesc.bus_voltage;
+            float bus_a = ab_ptr->odesc.bus_current;
+            pack_battery_payload(bat_payload, bus_v, bus_a);
+
+            CRSF_TxSend(CRSF_FRAMETYPE_BATTERY_SENSOR, bat_payload, sizeof(bat_payload));
+        }
+
+        // ---- Heartbeat every ~1000 ms ----
+        if ((now - last_hb) >= 1000)
+        {
+            last_hb = now;
+
+            uint8_t hb_payload = CRSF_ADDRESS_FLIGHT_CONTROLLER; // 0xC8
+            CRSF_TxSend(CRSF_FRAMETYPE_HEARTBEAT, &hb_payload, 1);
+        }
+
+        task_crsf_transmitter_alive++;
+        osDelay(200);
     }
 }

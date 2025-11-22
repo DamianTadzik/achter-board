@@ -203,7 +203,8 @@ bool CRSF_TxSend(uint8_t type, const uint8_t *payload, uint8_t payload_len) {
 
     uint8_t buf[CRSF_FRAME_SIZE_MAX];
     int pos = 0;
-    buf[pos++] = CRSF_ADDRESS_CRSF_RECEIVER;     // Device address (to RX)
+//    buf[pos++] = CRSF_ADDRESS_CRSF_RECEIVER;   wrong?  // Device address (to RX)
+    buf[pos++] = CRSF_ADDRESS_FLIGHT_CONTROLLER;
     buf[pos++] = (uint8_t)(payload_len + CRSF_FRAME_LENGTH_TYPE_CRC);
     buf[pos++] = type;
     memcpy(&buf[pos], payload, payload_len); pos += payload_len;

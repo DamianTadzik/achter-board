@@ -50,6 +50,24 @@ static inline uint8_t switch_2_pos_decode_from_channel(uint16_t channel)
 	else return 1;
 }
 
+enum {
+	ch_yaw = 0,
+	ch_throttle,
+	ch_pitch,
+	ch_roll,
+	ch_s1, // not used
+	ch_s2,
+	ch_se, // mode
+	ch_sf, // arm
+
+	ch_sa, // sync
+
+	// not used
+	ch_sb,
+	ch_sc,
+	ch_sd,
+} channel_mapping;
+
 
 uint16_t ch[CRSF_MAX_CHANNEL];
 uint32_t age_us;
@@ -75,27 +93,27 @@ void task_crsf_receiver(void *argument)
         {
             if (CRSF_GetChannels(ch, &age_us))
             {
-            	ab_ptr->from_radio.throttle = map_i16(ch[0],
-            									 	   172, 1811,
+            	ab_ptr->from_radio.throttle = map_i16(ch[ch_throttle],
+            									 	   172, 1810,
 													   -1000, 1000);
-            	ab_ptr->from_radio.steering = map_i16(ch[1],
-												 	  172, 1811,
+            	ab_ptr->from_radio.steering = map_i16(ch[ch_yaw],
+												 	  172, 1810,
 												 	  -1000, 1000);
 
-            	ab_ptr->from_radio.front_pitch_sp = map_i16(ch[2],
-            												172, 1811,
+            	ab_ptr->from_radio.front_pitch_sp = map_i16(ch[ch_pitch],
+            												172, 1810,
 															-1000, 1000);
-            	ab_ptr->from_radio.front_roll_sp = map_i16(ch[3],
-						 	 	 	 	 	 	 	       172, 1811,
+            	ab_ptr->from_radio.front_roll_sp = map_i16(ch[ch_roll],
+						 	 	 	 	 	 	 	       172, 1810,
 													       -1000, 1000);
-            	ab_ptr->from_radio.rear_pitch_sp = map_i16(ch[4],
-						 	 	 	 	 	 	 	       172, 1811,
+            	ab_ptr->from_radio.rear_pitch_sp = map_i16(ch[ch_s2],
+						 	 	 	 	 	 	 	       172, 1810,
 													       -1000, 1000);
 
-            	ab_ptr->from_radio.sync_switch = switch_3_pos_decode_from_channel(ch[5]);
+            	ab_ptr->from_radio.sync_switch = switch_3_pos_decode_from_channel(ch[ch_sa]);
 
-            	ab_ptr->from_radio.arm_switch = switch_3_pos_decode_from_channel(ch[6]);
-            	ab_ptr->from_radio.mode_switch = switch_3_pos_decode_from_channel(ch[7]);
+            	ab_ptr->from_radio.arm_switch = switch_3_pos_decode_from_channel(ch[ch_se]);
+            	ab_ptr->from_radio.mode_switch = switch_3_pos_decode_from_channel(ch[ch_sf]);
             }
         }
 

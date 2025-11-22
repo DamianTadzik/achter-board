@@ -11,7 +11,7 @@
 
 #include "can-not/can_not.h"
 #include <string.h>
-//#include "canmsgs
+#include "can-messages-mini-celka/src/cmmc.h"
 
 volatile uint32_t g_can_messages_arrived = 0;
 volatile uint32_t g_can_messages_decoded = 0;
@@ -42,9 +42,28 @@ void task_can_rx(void *argument)
 			{
 			case 0x001:
 				// TODO FIXME decode this properly via dbc and add everything whats needed to ab structure xd
-				debug_g_tmp(&l_tmp);
-
 				ab_ptr->odesc.axis_current_state = l_tmp.msg_payload[4];
+
+				g_can_messages_decoded++;
+				break;
+
+			case CMMC_ODRIVE_GET_BUS_VOLTAGE_CURRENT_FRAME_ID:
+				// Do not use CANTOOLS to decode IEEE Floats
+//				struct cmmc_odrive_get_bus_voltage_current_t tmp = { 0 };
+//
+//				cmmc_odrive_get_bus_voltage_current_unpack(&tmp, l_tmp.msg_payload,
+//						CMMC_ODRIVE_GET_BUS_VOLTAGE_CURRENT_LENGTH);
+//
+//				ab_ptr->odesc.bus_voltage =
+//						cmmc_odrive_get_bus_voltage_current_bus_voltage_decode(
+//								tmp.bus_voltage);
+//				ab_ptr->odesc.bus_current =
+//						cmmc_odrive_get_bus_voltage_current_bus_current_decode(
+//								tmp.bus_current);
+
+				// Decode by simply copying bytes instead :>
+				memcpy(&ab_ptr->odesc.bus_voltage, &l_tmp.msg_payload[0], 4);
+				memcpy(&ab_ptr->odesc.bus_current, &l_tmp.msg_payload[4], 4);
 
 				g_can_messages_decoded++;
 				break;
