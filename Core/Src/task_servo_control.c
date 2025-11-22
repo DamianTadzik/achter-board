@@ -87,6 +87,15 @@ static inline int16_t map_i16(int16_t x,
     return (int16_t)(out_min + num / denom);
 }
 
+static inline float map_f(float x,
+                         float in_min,  float in_max,
+                         float out_min, float out_max)
+{
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min)
+           + out_min;
+}
+
+
 
 static void actuator_set_setpoint(actuator_t *hact, int16_t requested_setpoint)
 {
@@ -362,15 +371,31 @@ void task_servo_control(void* argument)
 	while (1)
 	{
 		/* Obtain control signals from CAN/RADIO */
-		int16_t steering_sp = map_i16(ab_ptr->from_radio.steering,
-									   -1000, 1000,
-									   1200, 1800); // TODO fix this
+		int16_t steering_sp = 0;
+		int16_t rear_foil_sp = 0;
 
-		int16_t rear_foil_sp = map_i16(ab_ptr->from_radio.rear_pitch_sp,
-									   -1000, 1000,
-										rear_foil_actuator.calibrated_setpoint_lower_bound,
-										rear_foil_actuator.calibrated_setpoint_upper_bound);
+		if (ab_ptr->from_radio.mode_switch == MANUAL_RADIO)
+		{
+			steering_sp = map_i16(ab_ptr->from_radio.steering,
+								  -1000, 1000,
+								   1200, 1800);
 
+			rear_foil_sp = map_i16(ab_ptr->from_radio.rear_pitch_sp,
+								   -1000, 1000,
+									rear_foil_actuator.calibrated_setpoint_lower_bound,
+									rear_foil_actuator.calibrated_setpoint_upper_bound);
+		}
+		else if (ab_ptr->from_radio.mode_switch == MANUAL_CONTROLLER || ab_ptr->from_radio.mode_switch == AUTO_CONTROLLER)
+		{
+			steering_sp = map_i16(ab_ptr->from_radio.steering,
+								  -1000, 1000,
+								   1200, 1800);
+			// TODO use the setpoint from can message, but before, transform into setpoint from degrees becuase can message is in degrees xd
+			rear_foil_sp = map_f(ab_ptr->from_controller.rear_angle_sp,
+								 -6.0, 12.0,
+								  rear_foil_actuator.calibrated_setpoint_lower_bound,
+								  rear_foil_actuator.calibrated_setpoint_upper_bound);
+		}
 
 		if (ab_ptr->from_radio.arm_switch == ARMED_STEERING_PROPULSION)
 		{
