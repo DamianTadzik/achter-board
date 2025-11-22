@@ -14,13 +14,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-// ======= USER TUNABLES =======
-#define TASK_PERIOD_MS 			50
-#define ODRV_NODE_ID            0x00    // <axis>.config.can.node_id (0..0x3F) - your ODrive's node ID.
-#define VEL_MAX_TURNS_S         76.0f   // max speed at 1000 permile throttle [turns/s] (example)
-#define THROTTLE_DEADBAND_PERMILE   45    // +/- permile deadband around zero
-#define HYSTERESIS_MS_TO_CLOSED_LOOP_CONTROL	500     // must persist past threshold this long
-#define HYSTERESIS_MS_TO_IDLE              		800    // must persist past threshold this long
+
+
+
+
 static inline uint16_t odrv_can_id(uint8_t node_id, uint8_t cmd_id)
 {
     // Pack into standard 11-bit identifier
@@ -70,13 +67,19 @@ static void odrv_send_clear_errors(uint8_t node_id)
 	cant_transmit(&m);
 }
 
+static inline float map_f(float x,
+                         float in_min,  float in_max,
+                         float out_min, float out_max)
+{
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min)
+           + out_min;
+}
 
-uint8_t previous = 0, current = 0;
 
-volatile uint8_t node_id = ODRV_NODE_ID;
+#define ODRV_NODE_ID            0x00    // <axis>.config.can.node_id (0..0x3F) - your ODrive's node ID.
+#define TASK_PERIOD_MS 			50
+static uint8_t previous = 0, current = 0;
 volatile uint8_t mode = AXIS_STATE_UNDEFINED;
-volatile float vel_sp = 0.0f;
-
 extern volatile uint32_t task_motor_control_alive;
 void task_motor_control(void *argument)
 {
@@ -84,8 +87,6 @@ void task_motor_control(void *argument)
 
 	while (1)
 	{
-		task_motor_control_alive++;
-
 		current = ab_ptr->from_radio.arm_switch;
 		if (current != previous)
 		{
@@ -93,41 +94,41 @@ void task_motor_control(void *argument)
 			if (current == 0)
 			{
 				mode = AXIS_STATE_UNDEFINED;
-				odrv_send_set_axis_state(node_id, AXIS_STATE_IDLE);
+				odrv_send_set_axis_state(ODRV_NODE_ID, AXIS_STATE_IDLE);
 			}
 			// nastapila zmiana na armed
 			if (current == 1 || current == 2)
 			{
 			    // Clear errors, feed watchdog with 0 sp, run startup sequence,
-			    odrv_send_clear_errors(node_id);
-			    odrv_send_set_input_vel(node_id, 0.0f, 0.0f);
+			    odrv_send_clear_errors(ODRV_NODE_ID);
+			    odrv_send_set_input_vel(ODRV_NODE_ID, 0.0f, 0.0f);
 			    mode = AXIS_STATE_STARTUP_SEQUENCE;
-			    odrv_send_set_axis_state(node_id, AXIS_STATE_STARTUP_SEQUENCE);
+			    odrv_send_set_axis_state(ODRV_NODE_ID, AXIS_STATE_STARTUP_SEQUENCE);
 
 			    // Poll until controller reports idle state. Keep feeding watchdog
 			    do {
 			    	buzz();
 			    	osDelay(200);
 			    	no_buzz();
-			        odrv_send_set_input_vel(node_id, 0.0f, 0.0f);
+			        odrv_send_set_input_vel(ODRV_NODE_ID, 0.0f, 0.0f);
 			    } while (ab_ptr->odesc.axis_current_state != 1);
 			    mode = AXIS_STATE_IDLE;
 			}
 		}
+		previous = current;
 
 
-		/* 1) Read throttle and clamp */
-		int16_t thr = ab_ptr->from_radio.throttle;   // -1000..1000 (permile)
+		/* 1) Read throttle, clamp and scale down the reverse throttle */
+		volatile int16_t thr = ab_ptr->from_radio.throttle;   // -1000..1000 (permile)
 		if (thr > 1000) thr = 1000;
-		if (thr < -400) thr = -400;
+		if (thr < 0 ) thr = map_f(thr, -1000, 0, -300, 0);
 
-		/* 2) Apply deadband */
-		if (abs(thr) < THROTTLE_DEADBAND_PERMILE) thr = 0;
 
-		/* 3) Map to turns/s */
-		vel_sp = (float)thr * (VEL_MAX_TURNS_S / 1000.0f);
+		/* 5) Mode supervision with hysteresis */
+#define THROTTLE_DEADBAND_PERMILE   25  // +/- permile deadband around zero
+#define HYSTERESIS_MS_TO_CLOSED_LOOP_CONTROL	200     // must persist past threshold this long
+#define HYSTERESIS_MS_TO_IDLE              		500    // must persist past threshold this long
 
-		/* Mode supervision */
 		static uint32_t hysteresis_ms = 0;
 
 		if (mode == AXIS_STATE_IDLE && abs(thr) >= THROTTLE_DEADBAND_PERMILE)
@@ -136,7 +137,7 @@ void task_motor_control(void *argument)
 			if (hysteresis_ms >= HYSTERESIS_MS_TO_CLOSED_LOOP_CONTROL)
 			{
 				mode = AXIS_STATE_CLOSED_LOOP_CONTROL;
-				odrv_send_set_axis_state(node_id, AXIS_STATE_CLOSED_LOOP_CONTROL);
+				odrv_send_set_axis_state(ODRV_NODE_ID, AXIS_STATE_CLOSED_LOOP_CONTROL);
 			}
 		}
 		else if (mode == AXIS_STATE_CLOSED_LOOP_CONTROL && abs(thr) < THROTTLE_DEADBAND_PERMILE/3)
@@ -145,21 +146,85 @@ void task_motor_control(void *argument)
 			if (hysteresis_ms >= HYSTERESIS_MS_TO_IDLE)
 			{
 				mode = AXIS_STATE_IDLE;
-				odrv_send_set_axis_state(node_id, AXIS_STATE_IDLE);
+				odrv_send_set_axis_state(ODRV_NODE_ID, AXIS_STATE_IDLE);
 			}
 		}
 
-		if ((ab_ptr->from_radio.arm_switch == 1 || ab_ptr->from_radio.arm_switch == 2) && mode == AXIS_STATE_CLOSED_LOOP_CONTROL)
+
+		/* 2) Apply deadband */
+		if (abs(thr) < THROTTLE_DEADBAND_PERMILE) thr = 0;
+
+
+		/* 3) Map to turns/s */
+#define VEL_MAX_TURNS_S         50.0f   // max speed at 1000 permile throttle [turns/s] (example)
+		float vel_sp = (float)thr * (VEL_MAX_TURNS_S / 1000.0f);
+
+
+		/* 4) Software rate limiter aka ramp */
+		#define INITIAL_RISE_RATE      0.1f
+		#define INITIAL_RATE_UP_TO     2.0f
+
+		#define FORWARD_RISE_RATE      0.5f
+		#define FORWARD_FALL_RATE      2.0f
+
+		#define BACKWARD_FALL_RATE     0.5f
+		#define BACKWARD_RISE_RATE     2.0f
+
+		#define HIGH_SPEED_THRESHOLD   15.0f
+		#define HIGH_SPEED_RISE_RATE   1.5f
+		#define HIGH_SPEED_FALL_RATE   2.0f
+
+		static float limited_vel_sp = 0.0f;
+
+		float diff = vel_sp - limited_vel_sp;
+		float abs_prev = fabsf(limited_vel_sp);
+		float abs_req  = fabsf(vel_sp);
+
+		float rise_rate;
+		float fall_rate;
+
+		/* ---------- Stage selection ---------- */
+
+		/* Stage 1: TRUE soft start (only when starting to accelerate away from zero) */
+		if (abs_prev < INITIAL_RATE_UP_TO && abs_req > abs_prev)
 		{
-			odrv_send_set_input_vel(node_id, vel_sp, 0.0f);
+		    rise_rate = INITIAL_RISE_RATE;
+		    fall_rate = INITIAL_RISE_RATE;   // soft start only, not soft stop
+		}
+		/* Stage 3: High-speed region */
+		else if (abs_prev > HIGH_SPEED_THRESHOLD)
+		{
+		    rise_rate = HIGH_SPEED_RISE_RATE;
+		    fall_rate = HIGH_SPEED_FALL_RATE;
+		}
+		/* Stage 2: Normal region */
+		else if (limited_vel_sp >= 0.0f)
+		{
+		    rise_rate = FORWARD_RISE_RATE;
+		    fall_rate = FORWARD_FALL_RATE;
 		}
 		else
 		{
-			odrv_send_set_input_vel(node_id, 0.0f, 0.0f);
+		    rise_rate = BACKWARD_RISE_RATE;
+		    fall_rate = BACKWARD_FALL_RATE;
 		}
 
-		previous = current;
+		/* ---------- Apply ramp ---------- */
+		if (diff > rise_rate)
+		    limited_vel_sp += rise_rate;
+		else if (diff < -fall_rate)
+		    limited_vel_sp -= fall_rate;
+		else
+		    limited_vel_sp = vel_sp;
 
+
+
+
+		/* 6) Transmit vel setpoint */
+		odrv_send_set_input_vel(ODRV_NODE_ID, limited_vel_sp, 0.0f);
+
+
+		task_motor_control_alive++;
 		osDelay(TASK_PERIOD_MS);
 	}
 }
