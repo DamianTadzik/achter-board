@@ -58,8 +58,8 @@ actuator_t steering_actuator = {
 				.setpoint_lower_bound = 1000,
 				.setpoint_upper_bound = 2000,
 		},
-		.calibrated_setpoint_lower_bound = 1326,
-		.calibrated_setpoint_upper_bound = 1608,
+		.calibrated_setpoint_lower_bound = 1090,
+		.calibrated_setpoint_upper_bound = 1970,
 };
 
 // FT1117M 120* for range 900 to 2100 that gives 120/(2100-900) = 120 / 1200 = 1/10
@@ -94,8 +94,6 @@ static inline float map_f(float x,
     return (x - in_min) * (out_max - out_min) / (in_max - in_min)
            + out_min;
 }
-
-
 
 static void actuator_set_setpoint(actuator_t *hact, int16_t requested_setpoint)
 {
@@ -378,7 +376,8 @@ void task_servo_control(void* argument)
 		{
 			steering_sp = map_i16(ab_ptr->from_radio.steering,
 								  -1000, 1000,
-								   1200, 1800);
+								  steering_actuator.calibrated_setpoint_lower_bound,
+							      steering_actuator.calibrated_setpoint_upper_bound);
 
 			rear_foil_sp = map_i16(ab_ptr->from_radio.rear_pitch_sp,
 								   -1000, 1000,
@@ -389,7 +388,8 @@ void task_servo_control(void* argument)
 		{
 			steering_sp = map_i16(ab_ptr->from_radio.steering,
 								  -1000, 1000,
-								   1200, 1800);
+								   steering_actuator.calibrated_setpoint_lower_bound,
+								   steering_actuator.calibrated_setpoint_upper_bound);
 			// TODO use the setpoint from can message, but before, transform into setpoint from degrees becuase can message is in degrees xd
 			rear_foil_sp = map_f(ab_ptr->from_controller.rear_angle_sp,
 								 -6.0, 12.0,
