@@ -48,8 +48,8 @@ void task_range_meas(void *argument)
     status |= VL6180_Prepare(&tof1);
 
     status |= VL6180_SetGroupParamHold(&tof1, 1);               // Hold params
-    status |= VL6180_SetXTalkCompensationRate(&tof1, 8);	// 0.063 * 128 = ~8
-    status |= VL6180_SetOffsetCalibrationData(&tof1, 0);
+    status |= VL6180_SetXTalkCompensationRate(&tof1, 4);	// 0.063 * 128 = ~8
+    status |= VL6180_SetOffsetCalibrationData(&tof1, +8);
     status |= VL6180_UpscaleSetScaling(&tof1, 2);               // Set scaling x (1–3)
     status |= VL6180_RangeSetMaxConvergenceTime(&tof1, 40);     // 50 recommended for x3
     status |= VL6180_SetGroupParamHold(&tof1, 0);               // Release hold
@@ -74,7 +74,7 @@ void task_range_meas(void *argument)
 
     status |= VL6180_SetGroupParamHold(&tof2, 1);               // Hold params
     status |= VL6180_SetXTalkCompensationRate(&tof2, 5);	// 0.063 * 128 = ~8
-    status |= VL6180_SetOffsetCalibrationData(&tof2, -2);
+    status |= VL6180_SetOffsetCalibrationData(&tof2, +2);
     status |= VL6180_UpscaleSetScaling(&tof2, 2);               // Set scaling x (1–3)
     status |= VL6180_RangeSetMaxConvergenceTime(&tof2, 40);     // 50 recommended for x3
     status |= VL6180_SetGroupParamHold(&tof2, 0);
