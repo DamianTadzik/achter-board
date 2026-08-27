@@ -361,13 +361,20 @@ static int actuator_range_identification(actuator_t *hact, float *ptr_current)
 
 volatile int16_t development_setpoint = 1500;
 
+#define SERVO_UPDATE_FLAG 0x01
+static osThreadId_t s_servo_task = NULL;
+
 extern volatile uint32_t task_servo_control_alive;
 void task_servo_control(void* argument)
 {
 	achter_board_t* ab_ptr = achter_board_get_ptr();
+	s_servo_task = osThreadGetId();
+	__HAL_TIM_DISABLE_OCxPRELOAD(&htim1, TIM_CHANNEL_1);
+	__HAL_TIM_DISABLE_OCxPRELOAD(&htim1, TIM_CHANNEL_2);
 
 	while (1)
 	{
+		osThreadFlagsWait(SERVO_UPDATE_FLAG, osFlagsWaitAny, 20);
 		/* Obtain control signals from CAN/RADIO */
 		int16_t steering_sp = 0;
 		int16_t rear_foil_sp = 0;
@@ -481,6 +488,13 @@ void task_servo_control(void* argument)
 		ab_ptr->rear_servo_feedback.setpoint_us = rear_foil_sp;
 
 		task_servo_control_alive++;
-		osDelay(10);
+//		osDelay(10);
 	}
 }
+
+void task_servo_control_tim_callback(void)
+{
+	if (s_servo_task != NULL)
+		osThreadFlagsSet(s_servo_task, SERVO_UPDATE_FLAG);
+}
+

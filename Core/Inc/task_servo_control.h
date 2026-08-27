@@ -10,4 +10,6 @@
 
 void task_servo_control(void *argument);
 
+void task_servo_control_tim_callback(void);
+
 #endif /* INC_TASK_SERVO_CONTROL_H_ */

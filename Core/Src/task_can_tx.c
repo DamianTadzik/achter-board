@@ -92,10 +92,10 @@ static void send_actuator_rear_foil_feedback(achter_board_t* ab_ptr)
 	cant_transmit(&msg);
 }
 
-static uint32_t radio_control_message_period = 2;
-static uint32_t distance_achter_feedback_message_period = 10;
-static uint32_t actuator_steering_feedback_message_period = 10;
-static uint32_t actuator_rear_foil_feedback_message_period = 10;
+static uint32_t radio_control_message_period = 20;
+static uint32_t distance_achter_feedback_message_period = 100;
+static uint32_t actuator_steering_feedback_message_period = 100;
+static uint32_t actuator_rear_foil_feedback_message_period = 100;
 
 extern volatile uint32_t task_can_tx_alive;
 void task_can_tx(void *argument)
@@ -134,6 +134,6 @@ void task_can_tx(void *argument)
 		}
 
 		task_can_tx_alive++;
-		osDelay(10);
+		osDelay(1);
 	}
 }

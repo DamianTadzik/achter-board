@@ -37,6 +37,7 @@
 
 #include "task_range_meas.h"
 #include "task_servo_power_monitor.h"
+#include "task_servo_control.h"
 
 #include "crsf/crsf_port.h"
 /* USER CODE END Includes */
@@ -259,7 +260,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
   /* USER CODE BEGIN Callback 1 */
   if (htim->Instance == TIM1) {
-	CRSF_TIM_UpdateIRQ(htim);
+    task_servo_control_tim_callback();
+    CRSF_TIM_UpdateIRQ(htim);
   }
   /* USER CODE END Callback 1 */
 }
